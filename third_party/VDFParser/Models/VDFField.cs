@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 namespace VDFParser.Models {
     [AttributeUsage(AttributeTargets.Property)]
     public class VDFField : Attribute {

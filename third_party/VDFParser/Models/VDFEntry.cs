@@ -1,4 +1,4 @@
-namespace VDFParser.Models {
+﻿namespace VDFParser.Models {
 
     /// <summary>
     /// Represents a VDF entry

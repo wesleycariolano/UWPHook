@@ -1,4 +1,4 @@
-using VDFParser.Machines;
+﻿using VDFParser.Machines;
 using VDFParser.Models;
 using System.IO;
 using System.Linq;
