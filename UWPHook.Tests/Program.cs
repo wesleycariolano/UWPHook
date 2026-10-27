@@ -5,7 +5,53 @@ using System.Text;
 using System.Text.Json;
 using UWPHook;
 using UWPHook.SteamGridDb;
+using UWPHook.LibraryDetails;
+using System.IO.Compression;
+using System.Security.Cryptography;
 using VDFParser.Models;
+
+if (args.Length == 2 && args[0] == "--render-details")
+{
+    Exception? renderError = null;
+    var thread = new Thread(() =>
+    {
+        try
+        {
+            var application = new UWPHook.App(); application.InitializeComponent();
+            var window = new LibraryDetailsWindow(new AppEntry { Name = "Call of Duty: Modern Warfare III", Aumid = "preview!cod" });
+            var grid = (System.Windows.Controls.Grid)window.Content;
+            grid.Background = System.Windows.Media.Brushes.White;
+            ((System.Windows.Controls.DataGrid)window.FindName("Results")).ItemsSource = new[] { new SteamGame(3595270, "Call of Duty®: Modern Warfare® III") };
+            ((System.Windows.Controls.TextBlock)window.FindName("GameTitle")).Text = "Call of Duty®: Modern Warfare® III";
+            ((System.Windows.Controls.TextBlock)window.FindName("Description")).Text = "Descrição oficial do jogo, com a edição escolhida e as informações da Steam em português. O executável do Xbox continua sendo usado para jogar.";
+            ((System.Windows.Controls.TextBlock)window.FindName("Credits")).Text = "Desenvolvimento: Sledgehammer Games, Treyarch e outros\nPublicação: Activision\nLançamento: 10/nov./2023";
+            ((System.Windows.Controls.TextBlock)window.FindName("Languages")).Text = "Idiomas informados pela Steam:\nPortuguês (Brasil), Inglês e outros. * Idiomas com suporte total de áudio.";
+            ((System.Windows.Controls.TextBlock)window.FindName("Status")).Text = "Prévia da configuração integrada; nenhum componente foi ativado nesta imagem.";
+            ((System.Windows.Controls.Button)window.FindName("SaveButton")).IsEnabled = true;
+            grid.Measure(new System.Windows.Size(810, 680)); grid.Arrange(new System.Windows.Rect(0, 0, 810, 680)); grid.UpdateLayout();
+            var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(810, 680, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+            bitmap.Render(grid);
+            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder(); encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+            using var output = File.Create(args[1]); encoder.Save(output);
+        }
+        catch (Exception exception) { renderError = exception; }
+    });
+    thread.SetApartmentState(ApartmentState.STA); thread.Start(); thread.Join();
+    if (renderError != null) throw renderError;
+    Console.WriteLine("Integrated details window rendered without installing components.");
+    return;
+}
+
+if (args.Length == 1 && args[0] == "--check-catalog")
+{
+    using var catalog = new SteamCatalog();
+    var games = await catalog.Search("Call of Duty®: Modern Warfare® III");
+    if (!games.Any(game => game.Id == 3595270)) throw new Exception("MWIII was not found in the current Steam catalog.");
+    var game = await catalog.Details(3595270);
+    if (string.IsNullOrWhiteSpace(game.Description) || !game.Languages.Contains("Português")) throw new Exception("Localized details were not returned.");
+    Console.WriteLine($"Live Steam catalog verified: {game.Name}, {game.Id}; Portuguese description/languages available.");
+    return;
+}
 
 if (args.Length == 2 && args[0] == "--render")
 {
@@ -116,6 +162,103 @@ File.WriteAllText(Path.Combine(newFolder, "user.config"), "invalid XML");
 Check(ArtworkKeyMigration.FindPreviousKey(migrationRoot) == "previous-version-test-key", "damaged newer settings do not hide an older key");
 File.WriteAllText(Path.Combine(newFolder, "user.config"), "<!DOCTYPE config [<!ENTITY external SYSTEM 'file:///not-allowed'>]><configuration>&external;</configuration>");
 Check(ArtworkKeyMigration.FindPreviousKey(migrationRoot) == "previous-version-test-key", "migration rejects XML external entities");
+
+byte[] Archive(params (string Name, string Content)[] files)
+{
+    using var buffer = new MemoryStream();
+    using (var zip = new ZipArchive(buffer, ZipArchiveMode.Create, true))
+        foreach (var item in files)
+        {
+            var entry = zip.CreateEntry(item.Name);
+            using var writer = new StreamWriter(entry.Open());
+            writer.Write(item.Content);
+        }
+    return buffer.ToArray();
+}
+string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
+void Reject(Action action, string name)
+{
+    bool rejected = false;
+    try { action(); }
+    catch (Exception error) when (error is IOException or InvalidDataException or ArgumentException or JsonException or InvalidOperationException) { rejected = true; }
+    Check(rejected, name);
+}
+string fakeSteam = Path.Combine(folder, "Steam");
+Directory.CreateDirectory(fakeSteam);
+File.WriteAllText(Path.Combine(fakeSteam, "Steam.exe"), "test fixture; never executed");
+byte[] host = Archive(("wsock32.dll", "fake-proxy"), ("millennium/lib/millennium.dll", "fake-host"));
+byte[] plugin = Archive(("NativeGameLinkForSteam/plugin.json", "{\"name\":\"NativeGameLinkForSteam\"}"),
+    ("NativeGameLinkForSteam/backend/main.lua", "-- test"), ("NativeGameLinkForSteam/.millennium/Dist/index.js", "// test"));
+Reject(() => CompanionInstaller.Install(fakeSteam, host, plugin, Hash(host), Hash(plugin), () => true), "integration refuses to install while Steam is running");
+Reject(() => CompanionInstaller.Install(fakeSteam, host, plugin, new string('0', 64), Hash(plugin), () => false), "component hash mismatch prevents installation");
+Check(!File.Exists(Path.Combine(fakeSteam, "wsock32.dll")), "failed preflight does not modify Steam files");
+bool injectionReached = false;
+Reject(() => CompanionInstaller.Install(fakeSteam, host, plugin, Hash(host), Hash(plugin), () => false,
+    index => { if (index == 4) { injectionReached = true; throw new IOException("injected write failure"); } }), "a mid-installation write failure is reported");
+Check(injectionReached && !File.Exists(Path.Combine(fakeSteam, "wsock32.dll"))
+    && !Directory.Exists(Path.Combine(fakeSteam, "millennium", "plugins", CompanionInstaller.PluginName)),
+    "failed activation rolls back new files and the partial companion directory");
+Reject(() => CompanionInstaller.ReadArchive(Archive(("../outside.dll", "bad")), ""), "archive traversal is rejected");
+Reject(() => CompanionInstaller.ReadArchive(Archive(("C:/outside.dll", "bad")), ""), "archive drive paths are rejected");
+Reject(() => CompanionInstaller.ReadArchive(Archive(("same.lua", "one"), ("SAME.lua", "two")), ""), "case-colliding archive files are rejected");
+string configPath = Path.Combine(fakeSteam, "millennium", "config", "config.json");
+Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
+File.WriteAllText(configPath, "{\"otherSetting\":42,\"plugins\":{\"enabledPlugins\":[\"OtherPlugin\"]}}");
+CompanionInstaller.Install(fakeSteam, host, plugin, Hash(host), Hash(plugin), () => false);
+using (var config = JsonDocument.Parse(File.ReadAllText(configPath)))
+    Check(config.RootElement.GetProperty("otherSetting").GetInt32() == 42
+        && config.RootElement.GetProperty("plugins").GetProperty("enabledPlugins").GetArrayLength() == 2,
+        "activation preserves other plugins and settings");
+Check(CompanionInstaller.IsInstalled(fakeSteam), "installation records ownership and includes the plugin");
+File.WriteAllText(Path.Combine(fakeSteam, "millennium", "lib", "millennium.dll"), "existing-host");
+CompanionInstaller.Install(fakeSteam, host, plugin, Hash(host), Hash(plugin), () => false);
+Check(File.ReadAllText(Path.Combine(fakeSteam, "millennium", "lib", "millennium.dll")) == "existing-host", "reinstall reuses an existing host without downgrading it");
+CompanionInstaller.Disable(fakeSteam, () => false);
+using (var config = JsonDocument.Parse(File.ReadAllText(configPath)))
+    Check(config.RootElement.GetProperty("plugins").GetProperty("enabledPlugins").EnumerateArray().Select(item => item.GetString()).SequenceEqual(["OtherPlugin"]), "deactivation preserves other enabled plugins");
+string unowned = Path.Combine(folder, "UnownedSteam");
+Directory.CreateDirectory(Path.Combine(unowned, "millennium", "plugins", CompanionInstaller.PluginName));
+File.WriteAllText(Path.Combine(unowned, "Steam.exe"), "test");
+Reject(() => CompanionInstaller.Install(unowned, host, plugin, Hash(host), Hash(plugin), () => false), "an independently installed companion is not overwritten");
+File.WriteAllText(Path.Combine(unowned, "wsock32.dll"), "another application");
+Reject(() => CompanionInstaller.Install(unowned, host, plugin, Hash(host), Hash(plugin), () => false), "an unrelated proxy DLL is not overwritten");
+string mappingFolder = Path.Combine(folder, "companion-state");
+Directory.CreateDirectory(mappingFolder);
+File.WriteAllText(Path.Combine(mappingFolder, "mappings.backup.json"), "{\"123\":\"456\"}");
+DetailsStore.Link(mappingFolder, new Dictionary<uint, uint> { [2437190603] = 3595270 });
+Check(DetailsStore.Read<string>(Path.Combine(mappingFolder, "mappings.json")).Count == 2, "details mappings retain the existing backup and link the correct Steam AppID");
+File.WriteAllText(Path.Combine(mappingFolder, "mappings.json"), "broken");
+Reject(() => DetailsStore.Link(mappingFolder, new Dictionary<uint, uint> { [2] = 3 }), "corrupt companion mappings are not overwritten");
+Check(File.ReadAllText(Path.Combine(mappingFolder, "mappings.json")) == "broken", "failed mapping update preserves source bytes");
+var detailStore = new DetailsStore(Path.Combine(folder, "chosen-details.json"));
+detailStore.Save("xbox!cod", new(3595270, "Modern Warfare III"));
+Check(detailStore.Find("xbox!cod")?.Id == 3595270, "Steam metadata selection persists independently of the launch target");
+Check(SteamCatalog.PlainText("Português&lt;teste&gt;<br><strong>*</strong>áudio") == "Português<teste>\n*áudio", "Steam descriptions and language labels render as plain text");
+using (var catalog = new SteamCatalog(new FakeHandler(HttpStatusCode.OK, "{\"items\":[{\"id\":3595270,\"name\":\"Modern Warfare III\"}]}")))
+    Check((await catalog.Search("Modern Warfare III")).Single().Id == 3595270, "Steam catalog search keeps the confirmed official ID");
+Check(SteamCatalog.TryAppId("https://store.steampowered.com/app/3595270/Call_of_Duty/", out uint parsedId) && parsedId == 3595270,
+    "official store URLs can resolve metadata when text search is incomplete");
+Check(!SteamCatalog.TryAppId("https://example.com/app/3595270/", out _) && !SteamCatalog.TryAppId("0", out _)
+    && !SteamCatalog.TryAppId("file://store.steampowered.com/app/3595270/", out _),
+    "direct catalog lookup accepts only valid Steam IDs and store URLs");
+var queryHandler = new FakeHandler(HttpStatusCode.OK, "{\"items\":[]}");
+using (var catalog = new SteamCatalog(queryHandler))
+{
+    await catalog.Search("Call of Duty®: Modern Warfare™ III");
+    Check(queryHandler.RequestUri!.Query.Contains("Call%20of%20Duty%20Modern%20Warfare%20III"), "Steam search removes legal marks and punctuation from the title");
+}
+using (var catalog = new SteamCatalog(new FakeHandler(HttpStatusCode.OK, "{\"3595270\":{\"success\":true,\"data\":{\"steam_appid\":3595270,\"name\":\"MWIII\",\"short_description\":\"Descrição\",\"supported_languages\":\"Português (Brasil)\",\"developers\":[\"Studio\"],\"publishers\":[\"Publisher\"],\"release_date\":{\"date\":\"10/nov./2023\"}}}}")))
+    Check((await catalog.Details(3595270)).Languages == "Português (Brasil)", "official description and language data are loaded without an API key");
+var bundledAssembly = typeof(CompanionInstaller).Assembly;
+using (var stream = bundledAssembly.GetManifestResourceStream("UWPHook.Details.Plugin.zip")!)
+{
+    using var data = new MemoryStream(); stream.CopyTo(data);
+    var files = CompanionInstaller.ReadArchive(data.ToArray(), CompanionInstaller.PluginName + "/");
+    string js = Encoding.UTF8.GetString(files[".millennium/Dist/index.js"]);
+    string lua = Encoding.UTF8.GetString(files["backend/main.lua"]);
+    Check(!System.Text.RegularExpressions.Regex.IsMatch(js, "[\"'][a-f0-9]{28,40}[\"']"), "bundled companion contains no distribution API credentials");
+    Check(lua.Contains("sync_steam_account_achievements = uwphook_read_only") && !files.Keys.Any(path => path.EndsWith("steam_achievement_sync.ps1")), "bundled integration disables account-achievement writes");
+}
 Console.WriteLine($"{passed} checks passed. No live Steam files were modified.");
 
 sealed class FakeHandler(HttpStatusCode code, string body) : HttpMessageHandler

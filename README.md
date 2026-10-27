@@ -1,13 +1,33 @@
-# UWPHook — library metadata fork
+# UWPHook — Xbox games and integrated Steam library details
 
 Fork of [BrianLima/UWPHook](https://github.com/BrianLima/UWPHook), retaining the MIT license and original credits.
+
+## One application for linking and library details
+
+Version 2.16 includes the library details integration in **the same UWPHook.exe**.
+Select an Xbox app and open **Ficha na Steam…** to search the official Steam
+catalog, preview the Portuguese description, developers, publisher, release date
+and supported languages, and save the correct edition. The Steam catalog does
+not require an API key.
+
+The same window activates the bundled interface components with **Ativar ficha
+na Steam**. There is no separate plugin download or installer window. Millennium
+3.6.2 and a bounded NativeGameLink 5.0 distribution are embedded in the application,
+with their MIT licenses and upstream credits. Windows may request administrator
+permission to write to Steam's folder. Steam must be closed during activation.
+
+This is an optional Steam client extension: the complete details panel requires
+activation and a Steam restart. Its compatibility with a particular Steam update
+must be verified in the real client. The Xbox launch target is retained. The
+**Desativar ficha** action disables this companion while preserving other plugins
+and the host they may share. See [component provenance](third_party/LibraryDetails/README.md).
 
 ## What changed
 
 * Recover an existing SteamGridDB API key after changing version or executable path. A missing key is explicitly reported in the export result, and first-run setup no longer clears an existing key.
 * Choose the correct SteamGridDB game by title and release year, instead of silently using the first search result. This distinguishes Modern Warfare 3 (2011) from Modern Warfare III (2023).
 * Search again with an edited title, optionally use the selected title in Steam, and remember the choice by Xbox AUMID across restarts.
-* Use **Choose artwork…** on a highlighted app row to correct a previous choice. During export, apps without a saved choice also open the picker. Skip keeps existing artwork.
+* Use **Escolher artes…** on a highlighted app row to correct a previous choice. During export, apps without a saved choice also open the picker. Skip keeps existing artwork.
 * Reimport the same Xbox app after a rename or moving UWPHook without creating a second shortcut. Retain its shortcut ID and last-play timestamp; map new artwork to that ID.
 * Exit Steam before export so the running client cannot overwrite changes. Existing shortcuts are backed up by the original backup mechanism.
 * Build from a clean clone with the .NET 8 SDK. VDFParser sources and its MIT license are pinned under `third_party/`; no manually installed DLLs are required.
@@ -16,25 +36,43 @@ Fork of [BrianLima/UWPHook](https://github.com/BrianLima/UWPHook), retaining the
 
 1. Publish or extract the build to a permanent folder. Steam shortcuts point to this executable; do not delete or move it after exporting.
 2. Open UWPHook and add your own SteamGridDB API key in Settings if needed. Never commit or share this key.
-3. Highlight the Call of Duty app row, then click **Choose artwork…**.
+3. Highlight the Call of Duty app row, then click **Escolher artes…**.
 4. Search **Modern Warfare III**, select the correct **2023** result, and click **Use selected artwork**. The optional checkbox applies the selected title to the shortcut.
 5. Tick the app for export. Exit Steam completely using its system tray menu, export, then open Steam again.
 6. Confirm the cover, background and logo, then launch from Steam and check the playing status.
 
+For descriptions and game information, open **Ficha na Steam…**, choose the correct
+Steam release (MWIII currently uses AppID **3595270**), and select **Salvar ficha
+deste jogo**. Close Steam, choose **Ativar ficha na Steam**, then reopen Steam and
+the game's library page. This saves a mapping to the existing shortcut ID; it
+does not replace the launch executable or change the shortcut into a licensed
+Steam application.
+
 The saved selections are local to `%APPDATA%\Briano\UWPHook\library-metadata.json`; they contain no API key. Correct a choice through the picker. If the JSON file is invalid, fix or move it aside before exporting; the app will not silently overwrite it.
 
-Steam still treats these entries as **non-Steam shortcuts**. The fork links to your installed Xbox app and uses its normal activation/licensing flow. It does not provide a Steam license, native Steam achievements, Steam playtime, or the full Steam library details panel. Artwork selection does not change the launch AUMID or executable. COD launch/status must be tested on the installed game; automated tests use simulated metadata and separate files.
+Steam still treats these entries as **non-Steam shortcuts**. The fork links to
+the installed Xbox app through its normal activation flow. The bundled extension
+adds local presentation of Steam metadata after activation. It does not provide
+a Steam license or convert Xbox achievements/playtime into official Steam account
+progress. COD launch/status and the injected page must be tested in the actual
+installed client; automated checks use simulated metadata and separate files.
 
 ## Build and validate this fork
 
 ```powershell
+./scripts/Prepare-LibraryDetails.ps1
 dotnet restore UWPHook/UWPHook.csproj
 dotnet build UWPHook/UWPHook.csproj -c Release
 dotnet run --project UWPHook.Tests/UWPHook.Tests.csproj -c Release
 dotnet publish UWPHook/UWPHook.csproj -c Release -r win-x64 --self-contained false -o publish
 ```
 
-The published executable requires .NET 8 Desktop Runtime for x64. Tests cover ambiguous titles, empty/API error responses, escaped searches, release years, persistent choices, corrupt JSON preservation, shortcut matching, retained artwork IDs and settings migration across executable paths. They do not edit a live Steam library.
+The published executable requires .NET 8 Desktop Runtime for x64. Run the component
+preparation script with PowerShell 7. It fetches pinned archives, validates their
+hashes and prepares the embedded distribution. Tests cover metadata selection,
+settings migration, binary VDF preservation, component integrity, archive paths,
+installation rollback, ownership conflicts, existing plugins and mapping backups.
+They do not activate the extension or modify a live Steam library.
 
 ---
 

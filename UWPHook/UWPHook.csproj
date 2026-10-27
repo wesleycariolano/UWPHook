@@ -79,5 +79,12 @@
 	  </ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\third_party\VDFParser\VDFParser.csproj" />
+		<EmbeddedResource Include="..\.bundles\millennium.zip" LogicalName="UWPHook.Details.Host.zip" />
+		<EmbeddedResource Include="..\.bundles\library-details.zip" LogicalName="UWPHook.Details.Plugin.zip" />
+		<EmbeddedResource Include="..\.bundles\components.json" LogicalName="UWPHook.Details.Components.json" />
+		<EmbeddedResource Include="..\third_party\LibraryDetails\Millennium.LICENSE" LogicalName="UWPHook.Details.Millennium.LICENSE" />
 	</ItemGroup>
+	<Target Name="RequireDetailsComponents" BeforeTargets="PrepareForBuild">
+		<Error Condition="!Exists('..\.bundles\components.json')" Text="Run scripts/Prepare-LibraryDetails.ps1 before building UWPHook." />
+	</Target>
 </Project>

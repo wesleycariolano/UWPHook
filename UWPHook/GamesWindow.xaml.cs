@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using UWPHook.Properties;
 using UWPHook.SteamGridDb;
+using UWPHook.LibraryDetails;
 using VDFParser;
 using VDFParser.Models;
 
@@ -30,6 +31,7 @@ namespace UWPHook
         AppEntryModel Apps;
         BackgroundWorker bwrLoad;
         static LoggingLevelSwitch levelSwitch = new LoggingLevelSwitch();
+        private bool maintenanceMode;
 
         public GamesWindow()
         {
@@ -53,6 +55,13 @@ namespace UWPHook
             levelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Information;
             SetLogLevel();
 
+            if (args?.ElementAtOrDefault(1) == "--install-library-details")
+            {
+                maintenanceMode = true;
+                _ = InstallDetailsAndClose();
+                return;
+            }
+
             // If null or 1, the app was launched normally
             if (args?.Length > 1)
             {
@@ -65,6 +74,22 @@ namespace UWPHook
                 //auto refresh on load
                 LoadButton_Click(null, null);
             }
+        }
+
+        private async Task InstallDetailsAndClose()
+        {
+            try
+            {
+                grid.IsEnabled = false;
+                await Task.Run(() => CompanionInstaller.InstallBundled(SteamManager.GetSteamFolder()));
+                Environment.ExitCode = 0;
+            }
+            catch (Exception exception)
+            {
+                Environment.ExitCode = 1;
+                MessageBox.Show(exception.Message, "UWPHook — ativação da ficha");
+            }
+            finally { Close(); }
         }
 
         private static void TryMigrateArtworkKey()
@@ -527,6 +552,7 @@ namespace UWPHook
                                 //Write the file with all the shortcuts
                                 File.WriteAllBytes(user + @"\\config\\shortcuts.vdf", VDFSerializer.Serialize(shortcuts));
                                 Log.Debug("Shortcuts written to " + user + @"\\config\\shortcuts.vdf");
+                                DetailsLinker.Apply(shortcuts, selected_apps);
                                 CopyTempGridImagesToSteamUser(user, artworkIds);
                             }
                             catch (Exception ex)
@@ -841,6 +867,16 @@ namespace UWPHook
             window.ShowDialog();
         }
 
+        private void LibraryDetailsButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (listGames.SelectedItem is not AppEntry app)
+            {
+                MessageBox.Show("Selecione a linha do jogo para configurar a ficha na Steam.", "UWPHook");
+                return;
+            }
+            new LibraryDetailsWindow(app) { Owner = this }.ShowDialog();
+        }
+
         /// <summary>
         /// Function that executes when the Games Window is loaded
         /// Will inform the user of the possibility of using the SteamGridDB API
@@ -850,6 +886,7 @@ namespace UWPHook
         /// <param name="e"></param>
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
+            if (maintenanceMode) return;
             if (!Settings.Default.OfferedSteamGridDB)
             {
                 Settings.Default.OfferedSteamGridDB = true;

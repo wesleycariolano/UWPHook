@@ -14,7 +14,10 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - name: Build and run regression checks
-        run: dotnet run --project UWPHook.Tests/UWPHook.Tests.csproj -c Release -p:UseSharedCompilation=false
+        # Both verified components become resources in the same executable.
+        run: |
+          ./scripts/Prepare-LibraryDetails.ps1
+          dotnet run --project UWPHook.Tests/UWPHook.Tests.csproj -c Release -p:UseSharedCompilation=false
       - name: Publish Windows executable
         run: dotnet publish UWPHook/UWPHook.csproj -c Release -r win-x64 --self-contained false -o publish -p:UseSharedCompilation=false
       - uses: actions/upload-artifact@v4
