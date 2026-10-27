@@ -1,3 +1,44 @@
+# UWPHook — library metadata fork
+
+Fork of [BrianLima/UWPHook](https://github.com/BrianLima/UWPHook), retaining the MIT license and original credits.
+
+## What changed
+
+* Choose the correct SteamGridDB game by title and release year, instead of silently using the first search result. This distinguishes Modern Warfare 3 (2011) from Modern Warfare III (2023).
+* Search again with an edited title, optionally use the selected title in Steam, and remember the choice by Xbox AUMID across restarts.
+* Use **Choose artwork…** on a highlighted app row to correct a previous choice. During export, apps without a saved choice also open the picker. Skip keeps existing artwork.
+* Reimport the same Xbox app after a rename or moving UWPHook without creating a second shortcut. Retain its shortcut ID and last-play timestamp; map new artwork to that ID.
+* Exit Steam before export so the running client cannot overwrite changes. Existing shortcuts are backed up by the original backup mechanism.
+* Build from a clean clone with the .NET 8 SDK. VDFParser sources and its MIT license are pinned under `third_party/`; no manually installed DLLs are required.
+
+## Test the fork
+
+1. Publish or extract the build to a permanent folder. Steam shortcuts point to this executable; do not delete or move it after exporting.
+2. Open UWPHook and add your own SteamGridDB API key in Settings if needed. Never commit or share this key.
+3. Highlight the Call of Duty app row, then click **Choose artwork…**.
+4. Search **Modern Warfare III**, select the correct **2023** result, and click **Use selected artwork**. The optional checkbox applies the selected title to the shortcut.
+5. Tick the app for export. Exit Steam completely using its system tray menu, export, then open Steam again.
+6. Confirm the cover, background and logo, then launch from Steam and check the playing status.
+
+The saved selections are local to `%APPDATA%\Briano\UWPHook\library-metadata.json`; they contain no API key. Correct a choice through the picker. If the JSON file is invalid, fix or move it aside before exporting; the app will not silently overwrite it.
+
+Steam still treats these entries as **non-Steam shortcuts**. The fork links to your installed Xbox app and uses its normal activation/licensing flow. It does not provide a Steam license, native Steam achievements, Steam playtime, or the full Steam library details panel. Artwork selection does not change the launch AUMID or executable. COD launch/status must be tested on the installed game; automated tests use simulated metadata and separate files.
+
+## Build and validate this fork
+
+```powershell
+dotnet restore UWPHook/UWPHook.csproj
+dotnet build UWPHook/UWPHook.csproj -c Release
+dotnet run --project UWPHook.Tests/UWPHook.Tests.csproj -c Release
+dotnet publish UWPHook/UWPHook.csproj -c Release -r win-x64 --self-contained false -o publish
+```
+
+The published executable requires .NET 8 Desktop Runtime for x64. Tests cover ambiguous titles, empty/API error responses, escaped searches, release years, persistent choices, corrupt JSON preservation, shortcut matching and retained artwork IDs. They do not edit a live Steam library.
+
+---
+
+## Original project documentation
+
 # UWPHook
 
 [![](http://imgur.com/gWwR02D.png)](https://briano.dev/UWPHook/)

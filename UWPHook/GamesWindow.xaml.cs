@@ -140,7 +140,7 @@ namespace UWPHook
                     ScriptManager.RunScript("Set-WinUILanguageOverride " + currentLanguage);
                 }
 
-                //The user has probably finished using the app, so let's close UWPHook to keep the experience clean 
+                //The user has probably finished using the app, so let's close UWPHook to keep the experience clean
                 this.Close();
             }
         }
@@ -157,7 +157,7 @@ namespace UWPHook
             }
             throw new FormatException("Invalid resolution format.");
         }
-        
+
         /// <summary>
         /// Generates a CRC32 hash expected by Steam to link an image with a game in the library
         /// See https://blog.yo1.dog/calculate-id-for-non-steam-games-js/ for an example
@@ -182,37 +182,39 @@ namespace UWPHook
         /// <param name="e"></param>
         private async void ExportButton_Click(object sender, RoutedEventArgs e)
         {
+            listGames.CommitEdit(System.Windows.Controls.DataGridEditingUnit.Cell, true);
+            listGames.CommitEdit(System.Windows.Controls.DataGridEditingUnit.Row, true);
+            if (!Apps.Entries.Any(app => app.Selected))
+            {
+                MessageBox.Show("Select at least one app to export.", "UWPHook");
+                return;
+            }
+            if (Process.GetProcessesByName("steam").Length > 0)
+            {
+                MessageBox.Show("Exit Steam from its system tray menu before exporting, then try again. This prevents Steam from overwriting your shortcuts.", "UWPHook");
+                return;
+            }
             grid.IsEnabled = false;
             progressBar.Visibility = Visibility.Visible;
-
-            bool result = false, restartSteam = true;
-            string msg = String.Empty;
-
+            artworkFailures.Clear();
+            string msg;
             try
             {
+                RemoveTempGridImages();
                 await ExportGames();
-                await RestartSteam(restartSteam);
-
-                msg = "Your apps were successfuly exported!";
-                if (!restartSteam)
-                {
-                    msg += " Please restart Steam in order to see them.";
-                }
-                else if (result)
-                {
-                    msg += " Steam has been restarted.";
-                }
-
+                msg = "Your apps were exported. Open Steam to see the updated library.";
             }
-            catch (TaskCanceledException exception)
+            catch (Exception)
             {
-                Log.Error(exception.Message);
-                msg = exception.Message;
+                msg = "Export could not finish. Check your Steam folder and the saved library-metadata.json file.";
             }
-
-            grid.IsEnabled = true;
-            progressBar.Visibility = Visibility.Collapsed;
-
+            finally
+            {
+                grid.IsEnabled = true;
+                progressBar.Visibility = Visibility.Collapsed;
+            }
+            if (artworkFailures.Count > 0)
+                msg += "\nSome artwork could not be downloaded. Existing artwork was kept where possible. Retry exporting to download it.";
             MessageBox.Show(msg, "UWPHook", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
@@ -223,41 +225,22 @@ namespace UWPHook
         /// <param name="destinationFilename">Path to store the image</param>
         /// <param name="format"></param>
         /// <returns></returns>
+        private static readonly System.Net.Http.HttpClient imageClient = new();
+
         private async Task SaveImage(string imageUrl, string destinationFilename, ImageFormat format)
         {
-            await Task.Run(() =>
-            {
-                WebClient client = new WebClient();
-                Stream stream = null;
-                try
-                {
-                    stream = client.OpenRead(imageUrl);
-                }
-                catch (Exception exception)
-                {
-                    Log.Error(exception.Message);
-                    //Image with error?
-                    //Skip for now
-                }
-
-                if (stream != null)
-                {
-                    Bitmap bitmap; bitmap = new Bitmap(stream);
-                    bitmap.Save(destinationFilename, format);
-                    stream.Flush();
-                    stream.Close();
-                    client.Dispose();
-                }
-            });
+            using var stream = await imageClient.GetStreamAsync(imageUrl);
+            using var bitmap = new Bitmap(stream);
+            bitmap.Save(destinationFilename, format);
         }
 
         /// <summary>
         /// Copies all temporary images to the given user
         /// </summary>
         /// <param name="user">The user path to copy images to</param>
-        private void CopyTempGridImagesToSteamUser(string user)
+        private void CopyTempGridImagesToSteamUser(string user, IReadOnlyDictionary<string, string> artworkIds)
         {
-            string tmpGridDirectory = Path.GetTempPath() + "UWPHook\\tmp_grid\\";
+            string tmpGridDirectory = exportGridDirectory;
             string userGridDirectory = user + "\\config\\grid\\";
 
             // No images were downloaded, maybe the key is invalid or no app had an image
@@ -275,14 +258,14 @@ namespace UWPHook
 
             foreach (string image in images)
             {
-                string destFile = userGridDirectory + Path.GetFileName(image);
+                string destFile = userGridDirectory + ShortcutIdentity.ArtworkFileName(Path.GetFileName(image), artworkIds);
                 File.Copy(image, destFile, true);
             }
         }
 
         private void RemoveTempGridImages()
         {
-            string tmpGridDirectory = Path.GetTempPath() + "UWPHook\\tmp_grid\\";
+            string tmpGridDirectory = exportGridDirectory;
             if (Directory.Exists(tmpGridDirectory))
             {
                 Directory.Delete(tmpGridDirectory, true);
@@ -297,76 +280,61 @@ namespace UWPHook
         /// <param name="appName">The name of the app</param>
         /// <param name="appTarget">The target path of the executable</param>
         /// <returns></returns>
-        private async Task DownloadTempGridImages(string appName, string appTarget)
+        private async Task DownloadTempGridImages(string appName, string appTarget, ArtworkSelection game)
         {
-            SteamGridDbApi api = new SteamGridDbApi(Properties.Settings.Default.SteamGridDbApiKey);
-            string tmpGridDirectory = Path.GetTempPath() + "UWPHook\\tmp_grid\\";
-            GameResponse[] games = null;
+            using var api = new SteamGridDbApi(Properties.Settings.Default.SteamGridDbApiKey);
+            string tmpGridDirectory = exportGridDirectory;
+            Log.Verbose("Detected Game: " + game.ToString());
+            UInt64 gameId = GenerateSteamGridAppId(appName, appTarget);
 
-            try
+            SafellyCreateTmpGridDirectory(tmpGridDirectory);
+
+            var gameGridsVertical = api.GetGameGrids(game.GameId, "600x900,342x482,660x930");
+            var gameGridsHorizontal = api.GetGameGrids(game.GameId, "460x215,920x430");
+            var gameHeroes = api.GetGameHeroes(game.GameId);
+            var gameLogos = api.GetGameLogos(game.GameId);
+
+            Log.Verbose("Game ID: " + game.GameId);
+
+            await Task.WhenAll(
+                gameGridsVertical,
+                gameGridsHorizontal,
+                gameHeroes,
+                gameLogos
+            );
+
+            var gridsVertical = await gameGridsVertical;
+            var gridsHorizontal = await gameGridsHorizontal;
+            var heroes = await gameHeroes;
+            var logos = await gameLogos;
+
+            List<Task> saveImagesTasks = new List<Task>();
+
+            if (gridsHorizontal != null && gridsHorizontal.Length > 0)
             {
-                games = await api.SearchGame(appName);
+                var grid = gridsHorizontal[0];
+                saveImagesTasks.Add(SaveImage(grid.Url, $"{tmpGridDirectory}\\{gameId}.png", ImageFormat.Png));
             }
-            catch (TaskCanceledException exception)
+
+            if (gridsVertical != null && gridsVertical.Length > 0)
             {
-                Log.Error(exception.Message);
+                var grid = gridsVertical[0];
+                saveImagesTasks.Add(SaveImage(grid.Url, $"{tmpGridDirectory}\\{gameId}p.png", ImageFormat.Png));
             }
 
-            if (games != null)
+            if (heroes != null && heroes.Length > 0)
             {
-                var game = games[0];
-                Log.Verbose("Detected Game: " + game.ToString());
-                UInt64 gameId = GenerateSteamGridAppId(appName, appTarget);
-
-                SafellyCreateTmpGridDirectory(tmpGridDirectory);
-
-                var gameGridsVertical = api.GetGameGrids(game.Id, "600x900,342x482,660x930");
-                var gameGridsHorizontal = api.GetGameGrids(game.Id, "460x215,920x430");
-                var gameHeroes = api.GetGameHeroes(game.Id);
-                var gameLogos = api.GetGameLogos(game.Id);
-
-                Log.Verbose("Game ID: " + game.Id);
-
-                await Task.WhenAll(
-                    gameGridsVertical,
-                    gameGridsHorizontal,
-                    gameHeroes,
-                    gameLogos
-                );
-
-                var gridsVertical = await gameGridsVertical;
-                var gridsHorizontal = await gameGridsHorizontal;
-                var heroes = await gameHeroes;
-                var logos = await gameLogos;
-
-                List<Task> saveImagesTasks = new List<Task>();
-
-                if (gridsHorizontal != null && gridsHorizontal.Length > 0)
-                {
-                    var grid = gridsHorizontal[0];
-                    saveImagesTasks.Add(SaveImage(grid.Url, $"{tmpGridDirectory}\\{gameId}.png", ImageFormat.Png));
-                }
-
-                if (gridsVertical != null && gridsVertical.Length > 0)
-                {
-                    var grid = gridsVertical[0];
-                    saveImagesTasks.Add(SaveImage(grid.Url, $"{tmpGridDirectory}\\{gameId}p.png", ImageFormat.Png));
-                }
-
-                if (heroes != null && heroes.Length > 0)
-                {
-                    var hero = heroes[0];
-                    saveImagesTasks.Add(SaveImage(hero.Url, $"{tmpGridDirectory}\\{gameId}_hero.png", ImageFormat.Png));
-                }
-
-                if (logos != null && logos.Length > 0)
-                {
-                    var logo = logos[0];
-                    saveImagesTasks.Add(SaveImage(logo.Url, $"{tmpGridDirectory}\\{gameId}_logo.png", ImageFormat.Png));
-                }
-
-                await Task.WhenAll(saveImagesTasks);
+                var hero = heroes[0];
+                saveImagesTasks.Add(SaveImage(hero.Url, $"{tmpGridDirectory}\\{gameId}_hero.png", ImageFormat.Png));
             }
+
+            if (logos != null && logos.Length > 0)
+            {
+                var logo = logos[0];
+                saveImagesTasks.Add(SaveImage(logo.Url, $"{tmpGridDirectory}\\{gameId}_logo.png", ImageFormat.Png));
+            }
+
+            await Task.WhenAll(saveImagesTasks);
         }
 
         private void SafellyCreateTmpGridDirectory(string tmpGridDirectory)
@@ -399,10 +367,11 @@ namespace UWPHook
             string[] tags = Settings.Default.Tags.Split(',');
             string steam_folder = SteamManager.GetSteamFolder();
 
+            if (!Directory.Exists(steam_folder)) throw new DirectoryNotFoundException("Steam installation was not found.");
             if (Directory.Exists(steam_folder))
             {
                 var users = SteamManager.GetUsers(steam_folder);
-                var selected_apps = Apps.Entries.Where(app => app.Selected);
+                var selected_apps = Apps.Entries.Where(app => app.Selected).ToList();
                 var processModule = Process.GetCurrentProcess().MainModule;
                 var exePath = processModule?.FileName;
                 var exeDir = Path.GetDirectoryName(exePath);
@@ -420,7 +389,11 @@ namespace UWPHook
                     {
                         Log.Verbose("Downloading grid images for app " + app.Name);
 
-                        gridImagesDownloadTasks.Add(DownloadTempGridImages(app.Name, exePath));
+                        var selection = ArtworkSelectionStore.Default.Find(app.Aumid);
+                        if (selection == null)
+                            selection = ChooseArtwork(app);
+                        if (selection != null)
+                            gridImagesDownloadTasks.Add(DownloadArtworkSafely(app.Name, exePath, selection));
                     }
                 }
 
@@ -430,6 +403,7 @@ namespace UWPHook
                 // in the steam folder by modifying it's VDF file
                 foreach (var user in users)
                 {
+                    var artworkIds = new Dictionary<string, string>();
                     try
                     {
                         VDFEntry[] shortcuts = new VDFEntry[0];
@@ -462,14 +436,14 @@ namespace UWPHook
 
                                     await Task.Run(() =>
                                     {
-                                        string tmpGridDirectory = Path.GetTempPath() + "UWPHook\\tmp_grid\\";
+                                        string tmpGridDirectory = exportGridDirectory;
 
                                         SafellyCreateTmpGridDirectory(tmpGridDirectory);
 
                                         string[] images = Directory.GetFiles(tmpGridDirectory);
 
                                         UInt64 gameId = GenerateSteamGridAppId(app.Name, exePath);
-                                        app.Icon = PersistAppIcon(app, tmpGridDirectory + gameId + "_logo.png");
+                                        app.Icon = PersistAppIcon(app, Path.Combine(tmpGridDirectory, gameId + "_logo.png"));
                                     });
                                 }
 
@@ -497,11 +471,14 @@ namespace UWPHook
                                 {
                                     Log.Verbose(shortcuts[i].ToString());
 
-                                    if (shortcuts[i].AppName == app.Name && shortcuts[i].Exe == exePath)
+                                    if (ShortcutIdentity.Matches(shortcuts[i], app.Aumid, exePath))
                                     {
                                         shortcutAlreadyExists = true;
                                         Log.Verbose(app.Name + " already added to Steam. Updating existing shortcut.");
+                                        ShortcutIdentity.PreserveLibraryIdentity(shortcuts[i], newApp);
+                                        artworkIds[GenerateSteamGridAppId(app.Name, exePath).ToString()] = unchecked((uint)newApp.appid).ToString();
                                         shortcuts[i] = newApp;
+                                        break;
                                     }
                                 }
 
@@ -525,6 +502,7 @@ namespace UWPHook
                                 //Write the file with all the shortcuts
                                 File.WriteAllBytes(user + @"\\config\\shortcuts.vdf", VDFSerializer.Serialize(shortcuts));
                                 Log.Debug("Shortcuts written to " + user + @"\\config\\shortcuts.vdf");
+                                CopyTempGridImagesToSteamUser(user, artworkIds);
                             }
                             catch (Exception ex)
                             {
@@ -536,7 +514,7 @@ namespace UWPHook
                     catch (Exception ex)
                     {
                         Log.Error("Error: Program failed exporting your games:" + Environment.NewLine + ex.Message + ex.StackTrace);
-                        MessageBox.Show("Error: Program failed exporting your games:" + Environment.NewLine + ex.Message + ex.StackTrace);
+                        throw new InvalidOperationException("Could not export shortcuts for a Steam user.", ex);
                     }
                 }
 
@@ -546,11 +524,6 @@ namespace UWPHook
 
                     await Task.Run(() =>
                     {
-                        foreach (var user in users)
-                        {
-                            CopyTempGridImagesToSteamUser(user);
-                        }
-
                         RemoveTempGridImages();
                     });
                 }
@@ -622,57 +595,6 @@ namespace UWPHook
             }
 
             return dest_file;
-        }
-
-        /// <summary>
-        /// Restarts the Steam.exe process
-        /// </summary>
-        /// <param name="restartSteam"></param>
-        /// <returns></returns>
-        private async Task<bool> RestartSteam(bool restartSteam)
-        {
-            Func<Process> getSteam = () => Process.GetProcessesByName("steam").SingleOrDefault();
-            Process steam = getSteam();
-
-            if (steam != null)
-            {
-                string steamExe = steam.MainModule.FileName;
-
-                //we always ask politely
-                Log.Debug("Requesting Steam shutdown");
-                Process.Start(steamExe, "-exitsteam");
-
-                bool restarted = false;
-                Stopwatch watch = new Stopwatch();
-                watch.Start();
-
-                //give it N seconds to sort itself out
-                int waitSeconds = 8;
-                while (!restarted || watch.Elapsed.TotalSeconds < waitSeconds)
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(0.5f));
-                    if (getSteam() == null)
-                    {
-                        Log.Debug("Restarting Steam");
-                        Process.Start(steamExe);
-                        restarted = true;
-                        break;
-                    }
-                }
-
-                if (!restarted)
-                {
-                    Log.Debug("Steam instance not restarted");
-                    MessageBox.Show("Failed to restart Steam, please launch it manually", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return false;
-                }
-            }
-            else
-            {
-                Log.Debug("Steam instance not found to be restarted");
-            }
-
-            return true;
         }
 
         public static void ClearAllShortcuts()
@@ -782,11 +704,20 @@ namespace UWPHook
                 //Rejoin them in the original list, but putting them into last
                 installedApps = installedApps.Union(nameNotFound).ToList<String>();
 
+                Dictionary<string, ArtworkSelection> savedArtwork;
+                try { savedArtwork = ArtworkSelectionStore.Default.Load(); }
+                catch (Exception)
+                {
+                    Log.Warning("Could not read saved artwork selections; installed app names will be used.");
+                    savedArtwork = new();
+                }
                 foreach (var app in installedApps)
                 {
                     //Remove end lines from the String and split both values, I split the appname and the AUMID using |
                     //I hope no apps have that in their name. Ever.
                     var values = app.Replace("\r\n", "").Split('|');
+
+                    if (values.Length < 4) continue;
 
                     if (values.Length >= 3 && AppManager.IsKnownApp(values[2], out string readableName))
                     {
@@ -797,9 +728,10 @@ namespace UWPHook
                     {
                         //We get the default square tile to find where the app stores it's icons, then we resolve which one is the widest
                         string logosPath = Path.GetDirectoryName(values[1]);
+                        string displayName = savedArtwork.TryGetValue(values[2], out var saved) && saved.UseTitle ? saved.Name : values[0];
                         Application.Current.Dispatcher.BeginInvoke((Action)delegate ()
                         {
-                            Apps.Entries.Add(new AppEntry() { Name = values[0], Executable = values[3], IconPath = logosPath, Aumid = values[2], Selected = false });
+                            Apps.Entries.Add(new AppEntry() { Name = displayName, Executable = values[3], IconPath = logosPath, Aumid = values[2], Selected = false });
                         });
                     }
                 }
@@ -832,6 +764,52 @@ namespace UWPHook
             return (appEntry.Aumid.ToLower().Contains(textBox.Text.ToLower()) || appEntry.Name.ToLower().Contains(textBox.Text.ToLower()));
         }
 
+        private ArtworkSelection? ChooseArtwork(AppEntry app)
+        {
+            var picker = new ArtworkPickerWindow(app.Name, Properties.Settings.Default.SteamGridDbApiKey) { Owner = this };
+            if (picker.ShowDialog() != true || picker.SelectedGame is not { } game) return null;
+            var selection = new ArtworkSelection(game.Id, game.Name, game.ReleaseYear, picker.UseSelectedTitle);
+            ArtworkSelectionStore.Default.Save(app.Aumid, selection);
+            if (selection.UseTitle) app.Name = selection.Name;
+            return selection;
+        }
+
+        private void ArtworkButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (listGames.SelectedItem is not AppEntry app)
+            {
+                MessageBox.Show("Select a game row first.", "UWPHook");
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(Properties.Settings.Default.SteamGridDbApiKey))
+            {
+                MessageBox.Show("Add your SteamGridDB API key in Settings first.", "UWPHook");
+                return;
+            }
+            try
+            {
+                var selection = ChooseArtwork(app);
+                if (selection != null)
+                    label.Content = $"Artwork: {selection.Name} ({selection.ReleaseYear}). Export to apply.";
+            }
+            catch (Exception)
+            {
+                MessageBox.Show("Could not save the artwork choice. Check access to library-metadata.json in the UWPHook AppData folder.", "UWPHook");
+            }
+        }
+
+        private async Task DownloadArtworkSafely(string appName, string appTarget, ArtworkSelection selection)
+        {
+            try { await DownloadTempGridImages(appName, appTarget, selection); }
+            catch (Exception)
+            {
+                Log.Warning("Artwork download failed for {Game}; exporting the shortcut without new artwork.", appName);
+                artworkFailures.Add(appName);
+            }
+        }
+
+        private readonly List<string> artworkFailures = new();
+        private readonly string exportGridDirectory = Path.Combine(Path.GetTempPath(), "UWPHook", "grid-" + Guid.NewGuid().ToString("N"));
         private void SettingsButton_Click(object sender, RoutedEventArgs e)
         {
             SettingsWindow window = new SettingsWindow();

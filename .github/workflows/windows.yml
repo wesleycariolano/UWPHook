@@ -1,0 +1,23 @@
+name: Windows build and validation
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build and run regression checks
+        run: dotnet run --project UWPHook.Tests/UWPHook.Tests.csproj -c Release -p:UseSharedCompilation=false
+      - name: Publish Windows executable
+        run: dotnet publish UWPHook/UWPHook.csproj -c Release -r win-x64 --self-contained false -o publish -p:UseSharedCompilation=false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: UWPHook-win-x64
+          path: publish/

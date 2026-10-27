@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.IO;
@@ -32,7 +32,7 @@ namespace UWPHook
         public string Name
         {
             get { return _name; }
-            set { _name = value; }
+            set { _name = value; OnPropertyChanged(); }
         }
 
         private string _executable;
@@ -68,7 +68,7 @@ namespace UWPHook
 
 
         /// <summary>
-        /// Sets the path where icons for the app is 
+        /// Sets the path where icons for the app is
         /// </summary>
         private string _icon_path;
 

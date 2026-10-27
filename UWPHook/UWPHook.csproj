@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<RootNamespace>UWPHook</RootNamespace>
@@ -14,12 +14,6 @@
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 		<IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
 	</PropertyGroup>
-
-	<ItemGroup>
-		<Reference Include="VDFParser">
-			<HintPath>..\..\SharpSteam\SharpSteam\bin\Release\VDFParser.dll</HintPath>
-		</Reference>
-	</ItemGroup>
 	<ItemGroup>
 		<EmbeddedResource Include="Resources\GetAUMIDScript.ps1" />
 		<EmbeddedResource Include="Resources\KnownApps.json">
@@ -33,7 +27,7 @@
 		<Resource Include="Resources\hook2.ico" />
 		<Resource Include="Resources\square.png" />
 	</ItemGroup>
-	
+
 	  <ItemGroup>
     <PackageReference Include="Crc32.NET">
       <Version>1.2.0</Version>
@@ -68,13 +62,7 @@
       <Version>5.0.0</Version>
     </PackageReference>
   </ItemGroup>
-	
-	  <ItemGroup>
-	    <Reference Include="VDFParser">
-	      <HintPath>..\..\VDFParser\VDFParser\bin\Debug\VDFParser.dll</HintPath>
-	    </Reference>
-	  </ItemGroup>
-	
+
 	  <ItemGroup>
 	    <Compile Update="Properties\Settings.Designer.cs">
 	      <DesignTimeSharedInput>True</DesignTimeSharedInput>
@@ -82,11 +70,14 @@
 	      <DependentUpon>Settings.settings</DependentUpon>
 	    </Compile>
 	  </ItemGroup>
-	
+
 	  <ItemGroup>
 	    <None Update="Properties\Settings.settings">
 	      <Generator>SettingsSingleFileGenerator</Generator>
 	      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
 	    </None>
 	  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\third_party\VDFParser\VDFParser.csproj" />
+	</ItemGroup>
 </Project>
