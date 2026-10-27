@@ -61,8 +61,28 @@ namespace UWPHook
             }
             else
             {
+                TryMigrateArtworkKey();
                 //auto refresh on load
                 LoadButton_Click(null, null);
+            }
+        }
+
+        private static void TryMigrateArtworkKey()
+        {
+            if (!string.IsNullOrWhiteSpace(Settings.Default.SteamGridDbApiKey)) return;
+            try
+            {
+                string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Briano");
+                string? key = ArtworkKeyMigration.ResolveKey(Settings.Default.SteamGridDbApiKey, folder);
+                if (string.IsNullOrWhiteSpace(key)) return;
+                Settings.Default.SteamGridDbApiKey = key;
+                Settings.Default.OfferedSteamGridDB = true;
+                Settings.Default.Save();
+                Log.Information("Imported existing SteamGridDB configuration from a previous UWPHook installation.");
+            }
+            catch (Exception)
+            {
+                Log.Warning("Could not import previous artwork settings. Configure SteamGridDB in Settings.");
             }
         }
 
@@ -215,6 +235,8 @@ namespace UWPHook
             }
             if (artworkFailures.Count > 0)
                 msg += "\nSome artwork could not be downloaded. Existing artwork was kept where possible. Retry exporting to download it.";
+            if (string.IsNullOrWhiteSpace(Settings.Default.SteamGridDbApiKey))
+                msg += "\nNo library artwork was downloaded: add a SteamGridDB API key in Settings, then export again.";
             MessageBox.Show(msg, "UWPHook", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
@@ -333,6 +355,9 @@ namespace UWPHook
                 var logo = logos[0];
                 saveImagesTasks.Add(SaveImage(logo.Url, $"{tmpGridDirectory}\\{gameId}_logo.png", ImageFormat.Png));
             }
+
+            if (saveImagesTasks.Count == 0)
+                throw new InvalidOperationException("No artwork matched the selected game and filters.");
 
             await Task.WhenAll(saveImagesTasks);
         }
@@ -827,9 +852,10 @@ namespace UWPHook
         {
             if (!Settings.Default.OfferedSteamGridDB)
             {
-                Settings.Default.SteamGridDbApiKey = "";
                 Settings.Default.OfferedSteamGridDB = true;
                 Settings.Default.Save();
+
+                if (!string.IsNullOrWhiteSpace(Settings.Default.SteamGridDbApiKey)) return;
 
                 var boxResult = MessageBox.Show("Do you want to automatically import grid images for imported games?", "UWPHook", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 if (boxResult == MessageBoxResult.Yes)

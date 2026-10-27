@@ -4,6 +4,7 @@ Fork of [BrianLima/UWPHook](https://github.com/BrianLima/UWPHook), retaining the
 
 ## What changed
 
+* Recover an existing SteamGridDB API key after changing version or executable path. A missing key is explicitly reported in the export result, and first-run setup no longer clears an existing key.
 * Choose the correct SteamGridDB game by title and release year, instead of silently using the first search result. This distinguishes Modern Warfare 3 (2011) from Modern Warfare III (2023).
 * Search again with an edited title, optionally use the selected title in Steam, and remember the choice by Xbox AUMID across restarts.
 * Use **Choose artwork…** on a highlighted app row to correct a previous choice. During export, apps without a saved choice also open the picker. Skip keeps existing artwork.
@@ -33,7 +34,7 @@ dotnet run --project UWPHook.Tests/UWPHook.Tests.csproj -c Release
 dotnet publish UWPHook/UWPHook.csproj -c Release -r win-x64 --self-contained false -o publish
 ```
 
-The published executable requires .NET 8 Desktop Runtime for x64. Tests cover ambiguous titles, empty/API error responses, escaped searches, release years, persistent choices, corrupt JSON preservation, shortcut matching and retained artwork IDs. They do not edit a live Steam library.
+The published executable requires .NET 8 Desktop Runtime for x64. Tests cover ambiguous titles, empty/API error responses, escaped searches, release years, persistent choices, corrupt JSON preservation, shortcut matching, retained artwork IDs and settings migration across executable paths. They do not edit a live Steam library.
 
 ---
 

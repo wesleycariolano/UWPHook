@@ -101,6 +101,21 @@ string vdf = Path.Combine(folder, "shortcuts.vdf");
 File.WriteAllBytes(vdf, VDFParser.VDFSerializer.Serialize([replacement, unrelated]));
 var roundtrip = VDFParser.VDFParser.Parse(vdf);
 Check(roundtrip.Length == 2 && roundtrip[0].appid == -123456 && roundtrip[0].AppName == "Modern Warfare III" && roundtrip[1].AppName == "Other app" && roundtrip[1].appid == 501, "binary VDF roundtrip retains renamed and unrelated shortcuts");
+string migrationRoot = Path.Combine(folder, "settings");
+Check(ArtworkKeyMigration.FindPreviousKey(migrationRoot) == null, "no prior settings requires no migration");
+string oldFolder = Path.Combine(migrationRoot, "UWPHook_Url_old", "2.14.3.0");
+string newFolder = Path.Combine(migrationRoot, "UWPHook_Url_new", "2.15.0.0");
+Directory.CreateDirectory(oldFolder);
+Directory.CreateDirectory(newFolder);
+string configTemplate = "<configuration><userSettings><UWPHook.Properties.Settings><setting name='SteamGridDbApiKey'><value>{0}</value></setting></UWPHook.Properties.Settings></userSettings></configuration>";
+File.WriteAllText(Path.Combine(oldFolder, "user.config"), string.Format(configTemplate, "previous-version-test-key"));
+File.WriteAllText(Path.Combine(newFolder, "user.config"), string.Format(configTemplate, ""));
+Check(ArtworkKeyMigration.ResolveKey("", migrationRoot) == "previous-version-test-key", "key migrates across version and executable path");
+Check(ArtworkKeyMigration.ResolveKey("current-key", migrationRoot) == "current-key", "configured current key is never overwritten");
+File.WriteAllText(Path.Combine(newFolder, "user.config"), "invalid XML");
+Check(ArtworkKeyMigration.FindPreviousKey(migrationRoot) == "previous-version-test-key", "damaged newer settings do not hide an older key");
+File.WriteAllText(Path.Combine(newFolder, "user.config"), "<!DOCTYPE config [<!ENTITY external SYSTEM 'file:///not-allowed'>]><configuration>&external;</configuration>");
+Check(ArtworkKeyMigration.FindPreviousKey(migrationRoot) == "previous-version-test-key", "migration rejects XML external entities");
 Console.WriteLine($"{passed} checks passed. No live Steam files were modified.");
 
 sealed class FakeHandler(HttpStatusCode code, string body) : HttpMessageHandler
