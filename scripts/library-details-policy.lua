@@ -16,7 +16,8 @@ return function(cjson)
         if path:sub(1, 1) == '"' and path:sub(-1) == '"' then path = path:sub(2, -2) end
         path = path:gsub('/', '\\'):lower()
         local absolute = path:match('^%a:\\') or path:match('^\\\\[^\\]+\\[^\\]+\\')
-        if not absolute or path:match('([^\\]+)$') ~= 'uwphook.exe' then
+        local name = path:match('([^\\]+)$')
+        if not absolute or (name ~= 'uwphook.exe' and name ~= 'sgs-app.exe') then
             return M.disabled()
         end
         return cjson.encode({ ok = true, modified = false, restored = false,

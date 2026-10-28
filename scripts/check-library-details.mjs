@@ -119,6 +119,7 @@ try {
     'C:\\Users\\Wesley\\Documents\\UWPHook-2.16.0\\UWPHook.exe',
     '"D:/Jogos/Meus atalhos/UWPHOOK.EXE"',
     '\\\\server\\share\\UWPHook.exe',
+    'C:\\Apps\\sGs-app\\sGs-app.exe',
   ]) for (const operation of ['neutralize', 'restore']) {
     const request = { exe_path, start_dir: 'D:\\XboxGames\\Content', expires_at_ms: Date.now() + 3500 };
     const result = JSON.parse(backend(`${operation}_steam_appid_file`, JSON.stringify(request)));

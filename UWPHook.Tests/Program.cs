@@ -10,6 +10,23 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using VDFParser.Models;
 
+if (args.Length == 1 && args[0] == "--check-discovery")
+{
+    var apps = GameDiscovery.Discover();
+    var games = apps.Where(app => app.IsGame).ToArray();
+    if (games.Any(app => app.PackageName is "Microsoft.GamingApp" or "Microsoft.GamingServices")) throw new Exception("Xbox support apps were classified as games.");
+    Console.WriteLine($"Detected {games.Length} games from {apps.Count} registered Windows apps: " + string.Join(", ", games.Select(app => app.Name)));
+    return;
+}
+
+if (args.Length == 2 && args[0] == "--check-folder")
+{
+    var game = ManualGameStore.RegisteredGame(args[1], GameDiscovery.Discover())
+        ?? throw new Exception("The folder did not resolve to a registered Xbox game.");
+    Console.WriteLine($"Xbox folder resolved: {game.Name}; registered activation {game.Aumid}; executable {game.Executable}.");
+    return;
+}
+
 if (args.Length >= 2 && args[0] == "--render-main")
 {
     Exception? renderError = null;
@@ -123,8 +140,48 @@ void Check(bool value, string name)
     if (!value) throw new Exception("FAIL: " + name);
     Console.WriteLine("PASS: " + name); passed++;
 }
+
+Check(AppIdentity.Name == "sGs-app" && AppIdentity.Version == typeof(GamesWindow).Assembly.GetName().Version!.ToString(3), "brand and displayed version come from the compiled application identity");
+Check(!GameDiscovery.IsGame(new AppEntry { PackageName = "Microsoft.WindowsCalculator" })
+    && !GameDiscovery.IsGame(new AppEntry { PackageName = "Microsoft.Windows.Photos" })
+    && !GameDiscovery.IsGame(new AppEntry { PackageName = "Microsoft.GamingServices", HasGameConfig = true })
+    && !GameDiscovery.IsGame(new AppEntry { PackageName = "Microsoft.GamingApp" }), "game discovery excludes desktop utilities and Xbox support components");
+Check(GameDiscovery.IsGame(new AppEntry { PackageName = "38985CA0.MWIIIGame", HasGameConfig = true })
+    && GameDiscovery.IsGame(new AppEntry { PackageName = "Legacy.Title", HasGameExplorer = true })
+    && GameDiscovery.IsGame(new AppEntry { PackageName = "Microsoft.MicrosoftSolitaireCollection" }), "game discovery includes GDK titles, declared legacy games and classic Microsoft games");
+var preference = UiPreferences.Current.ShowLinkedState;
+UiPreferences.Current.ShowLinkedState = true;
+Check(new AppEntry { InSteam = true }.LibraryStatus.Contains("Vinculado"), "linked games expose the requested linked state");
+UiPreferences.Current.ShowLinkedState = false;
+Check(new AppEntry { InSteam = true }.LibraryStatus == "Na Steam", "linked label can be disabled in interface preferences");
+UiPreferences.Current.ShowLinkedState = preference;
 string folder = Path.Combine(Environment.GetEnvironmentVariable("UWPHOOK_TEST_ROOT") ?? Path.GetTempPath(), "UWPHook-tests-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(folder);
+string pcFolder = Path.Combine(folder, "My PC Game"), pcExe = Path.Combine(pcFolder, "Bin", "Win64", "Game-Shipping.exe");
+Directory.CreateDirectory(Path.GetDirectoryName(pcExe)!);
+File.WriteAllText(pcExe, "fixture game; never executed");
+File.WriteAllText(Path.Combine(pcFolder, "setup.exe"), "installer fixture");
+File.WriteAllText(Path.Combine(pcFolder, "CrashReporter.exe"), "reporter fixture");
+Check(ManualGameStore.Executables(pcFolder).SequenceEqual([pcExe]), "folder detection finds a nested game executable while excluding installers and crash tools");
+var folderGame = ManualGameStore.Create(pcFolder, pcExe);
+var manualStore = new ManualGameStore(Path.Combine(folder, "manual-games.json"));
+manualStore.Save(folderGame); manualStore.Save(folderGame);
+var persistedFolderGame = manualStore.Load().Single();
+Check(persistedFolderGame.LaunchKind == "win32" && persistedFolderGame.ExecutablePath == pcExe
+    && persistedFolderGame.Aumid == ManualGameStore.Identity(pcFolder + Path.DirectorySeparatorChar), "folder game identity and executable persist without duplicates or breaking paths containing spaces");
+Reject(() => ManualGameStore.Create(pcFolder, Path.Combine(pcFolder, "setup.exe")), "installers cannot be registered as the main game executable");
+string externalExe = Path.Combine(folder, "outside.exe"); File.WriteAllText(externalExe, "fixture");
+Reject(() => ManualGameStore.Create(pcFolder, externalExe), "folder selection cannot silently point at a different directory's executable");
+string xboxRoot = Path.Combine(folder, "Xbox Game"); Directory.CreateDirectory(Path.Combine(xboxRoot, "Content"));
+File.WriteAllText(Path.Combine(xboxRoot, "Content", "MicrosoftGame.Config"), "<Game><Identity Name='Publisher.RealGame'/></Game>");
+var registeredXbox = new AppEntry { Aumid = "registered!game", PackageName = "Publisher.RealGame", Executable = "bootstrapper.exe", IsGame = true };
+Check(ManualGameStore.RegisteredGame(xboxRoot, [registeredXbox])?.Aumid == "registered!game", "selecting an Xbox folder resolves its registered identity instead of launching its protected executable directly");
+string xboxExe = Path.Combine(xboxRoot, "Content", "Game.exe"); File.WriteAllText(xboxExe, "fixture");
+Reject(() => ManualGameStore.Create(xboxRoot, xboxExe), "an unregistered Xbox game requires its normal Xbox registration");
+var folderShortcut = UnifiedImporter.BuildShortcuts([], [new ImportGame(folderGame, new(1234, "My PC Game", "Description", "Studio", "Publisher", "2024", "Português"))], "C:\\Apps\\sGs-app.exe").Single();
+Check(folderShortcut.LaunchOptions == folderGame.Aumid + " --folder" && folderShortcut.Exe == "C:\\Apps\\sGs-app.exe"
+    && !folderShortcut.LaunchOptions.Contains(pcExe), "Steam folder-game launch arguments use a stable identity without shell-parsing the executable path");
+Check(ShortcutIdentity.Matches(folderShortcut, folderGame.Aumid, "C:\\Moved\\sGs-app.exe"), "renamed sGs-app launcher retains existing shortcut identity after an app move");
 string file = Path.Combine(folder, "library-metadata.json");
 var store = new ArtworkSelectionStore(file);
 Check(store.Find("xbox!cod") == null, "new app has no implicit artwork match");
@@ -272,6 +329,13 @@ string importSteam = Path.Combine(folder, "UnifiedSteam"), importState = Path.Co
 Directory.CreateDirectory(Path.Combine(importSteam, "userdata", "777", "config"));
 Directory.CreateDirectory(Path.Combine(importSteam, "userdata", "888", "config"));
 File.WriteAllText(Path.Combine(importSteam, "steam.exe"), "fixture");
+string freshVdf = Path.Combine(importSteam, "userdata", "888", "config", "shortcuts.vdf");
+File.WriteAllBytes(freshVdf, VDFParser.VDFSerializer.Serialize([]));
+Check(new FileInfo(freshVdf).Length == 13 && SteamManager.ReadShortcuts(Path.GetDirectoryName(Path.GetDirectoryName(freshVdf))!).Length == 0,
+    "Steam's real 13-byte empty shortcut file is accepted for the first import");
+File.WriteAllBytes(freshVdf, [0, 1, 8]);
+Reject(() => SteamManager.ReadShortcuts(Path.GetDirectoryName(Path.GetDirectoryName(freshVdf))!), "other truncated shortcut files are rejected instead of overwritten");
+File.WriteAllBytes(freshVdf, VDFParser.VDFSerializer.Serialize([]));
 string importVdf = Path.Combine(importSteam, "userdata", "777", "config", "shortcuts.vdf");
 var importPlan = new ImportGame(new AppEntry { Aumid = "xbox!unified", Name = "Old name", Executable = "bootstrapper.exe" },
     new(3595270, "Call of Duty®: Modern Warfare® III", "Descrição", "Studio", "Publisher", "2023", "Português"));

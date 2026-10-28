@@ -1,55 +1,65 @@
-# UWPHook 3.0 — one connected library
+# sGs-app 3.1
 
-A new Windows interface and a single import action for Xbox / Windows games in
-Steam. Based on [BrianLima/UWPHook](https://github.com/BrianLima/UWPHook), with
-original MIT credits preserved.
+A Windows library for connecting Xbox and PC games to Steam in one action.
+Based on [BrianLima/UWPHook](https://github.com/BrianLima/UWPHook), with the MIT
+license and original project credits preserved.
 
-## Use it
+## Use the app
 
-1. Keep UWPHook.exe in a permanent folder and open it.
-2. Select an installed game. Its saved Steam edition, localized description and
-   languages load in the same window. For an ambiguous title, use **Conferir ou
-   trocar a edição** once to choose the release or enter its Steam AppID.
-3. Click **Adicionar à Steam** (or **Atualizar na Steam** for an existing game).
-   UWPHook closes Steam normally, prepares the included library presentation,
-   imports the shortcut, official artwork and committed metadata mapping, and
-   reopens Steam. No manual linking step in Steam is needed.
+1. Keep `sGs-app.exe` in a permanent folder and open it. The title bar, sidebar
+   and About section read the version compiled from the project file.
+2. Select a game and review its Steam edition, description and languages.
+3. Click **Vincular à Steam**. The app downloads official artwork, closes Steam
+   normally, prepares its included presentation components, commits the shortcut
+   and metadata together, and reopens Steam.
 
-The first setup may show a Windows administrator prompt for the Steam folder.
-Official artwork does not require a SteamGridDB API key. Existing custom artwork,
-shortcut identity, tags, visibility and play history are preserved. Import writes
-have a restore manifest under `%APPDATA%\Briano\UWPHook\backups` and roll back on
-failure. An existing independently managed NativeGameLink installation is not
-overwritten.
+The automatic list contains registered games: GDK titles with game configuration
+or game-launch metadata, declared legacy games and recognized classic Microsoft
+games. It excludes Windows utilities, Xbox support services and framework packages.
 
-The new charcoal interface includes installed-title search, a game preview,
-Portuguese catalog information, edition selection and integrated preferences.
-Previously saved edition choices are reused. MWIII (2023) uses Steam AppID
-**3595270**; it is kept distinct from Modern Warfare 3 (2011).
+If a title is missing, choose **+ Pasta do jogo**. A registered Xbox game keeps its
+normal Windows/Xbox activation identity. For a regular PC game, choose the main
+executable when several are found. Folder choices persist and are restored on the
+next launch. Installer and crash-report executables are excluded. A registered
+Xbox game is never converted into a direct launch of its protected executable.
 
-## What is integrated
+A synchronized game displays **Vinculado** with an **Atualizar vínculo** action.
+This label can be turned off in **Preferências**. The status is checked against
+both the Steam shortcut and the committed metadata mapping, rather than only the
+presence of a shortcut.
 
-The same UWPHook executable contains the Xbox launcher and the optional Steam
-presentation components Millennium 3.6.2 / NativeGameLink 5.0.0. Their setup is
-handled by the import action; no separate download or plugin configuration is
-required. Steam still needs its client extension at runtime for detailed
-non-Steam library pages. The included MIT dependencies remain credited; see
-[component provenance](third_party/LibraryDetails/README.md).
+## Branding, version and compatibility
 
-Version 3.0 fixes the missing final integration: committed mappings must be keyed
-as `shortcut:<unsigned shortcut ID>`. Earlier UWPHook versions wrote bare numbers,
-which the frontend interpreted as title aliases. Import now writes the canonical
-shortcut name and the correct mapping together, before Steam starts. The
-frontend's own already-linked predicate suppresses its linking review.
+The application and executable are named **sGs-app**, with a new vector logo and
+a Windows icon in seven sizes. `<Version>` in `UWPHook/UWPHook.csproj` is the single
+version source; UI labels derive from the compiled assembly. `scripts/Build-BrandAssets.ps1`
+reproduces the PNG and icon assets from the vector mark geometry.
 
-The game continues using its installed Xbox activation flow. This does not
-convert Xbox achievements, hours or licenses into Steam account progress.
+Existing UWPHook launch identities and local selections are retained. State stays
+in `%APPDATA%\Briano\UWPHook` for compatibility. Reimporting a game preserves its
+shortcut ID, play history, tags, visibility and custom artwork. A valid empty
+Steam shortcut file is accepted; other truncated files are rejected. Imports have
+restore manifests and roll back partial writes.
 
-## Build and verify
+## Included components
+
+The same executable bundles Millennium 3.6.2 and NativeGameLink 5.0.0 with their MIT
+licenses. The app handles setup; no separate end-user download is required.
+[Component provenance](third_party/LibraryDetails/README.md) documents the pinned
+archives and distribution changes. The companion accepts the legacy UWPHook and
+new sGs-app launcher names without modifying game licensing files.
+
+Steam mappings use `shortcut:<unsigned ID>` so the frontend recognizes imports as
+already linked. Xbox titles continue using Xbox activation; folder-based PC games
+use their chosen executable. Xbox license, achievement and hour conversion into
+Steam account progress is not implemented.
+
+## Build and check
 
 Requires Windows, PowerShell 7, .NET 8 SDK, Node.js 24 and pnpm.
 
 ```powershell
+./scripts/Build-BrandAssets.ps1
 ./scripts/Prepare-LibraryDetails.ps1
 pnpm install --frozen-lockfile --ignore-scripts
 dotnet run --project UWPHook.Tests/UWPHook.Tests.csproj -c Release -- --contract-output .bundles/import-contract.json
@@ -57,16 +67,13 @@ pnpm test:companion
 dotnet publish UWPHook/UWPHook.csproj -c Release -r win-x64 --self-contained false -o publish
 ```
 
-The published executable requires .NET 8 Desktop Runtime x64. Component archives
-are pinned and hash-verified at build time. Tests cover first imports into a fresh
-Steam profile, existing shortcut preservation, retries without duplicates,
-transaction rollback, corrupted mappings, component ownership and activation.
-The C# import output is executed against the packaged JavaScript already-linked
-predicate and Lua backend, including the regression for the old numeric keys.
-Tests use isolated fixtures and do not alter a live Steam library.
-
-The live workflow still requires testing against the installed Steam client;
-compatibility depends on Steam, Millennium and the included frontend version.
+The published executable requires .NET 8 Desktop Runtime x64. Regression checks
+cover game filtering, folder identities and persistence, executable selection,
+Xbox folder resolution, brand compatibility, first imports into empty profiles,
+duplicate prevention, rollback and committed frontend mapping recognition.
+Tests use separate fixtures and do not alter a live Steam library. Optional
+`--check-discovery` and `--check-folder <path>` harness modes inspect real Windows
+registrations without changing them.
 
 ## Original project documentation
 

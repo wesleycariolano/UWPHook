@@ -50,5 +50,5 @@ restore_steam_appid_file = uwphook_policy.restore
         try {$writer.Write($text)} finally {$writer.Dispose()}
     }
 } finally {$source.Dispose();$target.Dispose();$targetStream.Dispose()}
-@{HostVersion='3.6.2';PluginVersion='5.0.0-uwphook.2';HostHash=$components[0].Hash;PluginHash=(Get-FileHash -LiteralPath $targetPath).Hash} | ConvertTo-Json | Set-Content (Join-Path $CacheDirectory 'components.json') -Encoding utf8
+@{HostVersion='3.6.2';PluginVersion='5.0.0-uwphook.3';HostHash=$components[0].Hash;PluginHash=(Get-FileHash -LiteralPath $targetPath).Hash} | ConvertTo-Json | Set-Content (Join-Path $CacheDirectory 'components.json') -Encoding utf8
 Write-Output 'Pinned library details components prepared and verified.'

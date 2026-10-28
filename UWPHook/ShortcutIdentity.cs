@@ -12,7 +12,8 @@ internal static class ShortcutIdentity
         if (!string.Equals(originalAumid, aumid, StringComparison.Ordinal)) return false;
         string launcher = (shortcut.Exe ?? "").Trim('"');
         return string.Equals(launcher, currentLauncher.Trim('"'), StringComparison.OrdinalIgnoreCase)
-            || string.Equals(Path.GetFileName(launcher), "UWPHook.exe", StringComparison.OrdinalIgnoreCase);
+            || string.Equals(Path.GetFileName(launcher), "UWPHook.exe", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Path.GetFileName(launcher), "sGs-app.exe", StringComparison.OrdinalIgnoreCase);
     }
 
     internal static void PreserveLibraryIdentity(VDFEntry existing, VDFEntry replacement)

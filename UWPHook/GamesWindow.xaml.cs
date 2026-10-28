@@ -42,6 +42,7 @@ namespace UWPHook
             InitializeComponent();
             Log.Debug("Init GamesWindow");
             Apps = new AppEntryModel();
+            InitializeBrand();
             if (previewMode) return;
             Closing += (_, e) => { if (importBusy) e.Cancel = true; };
             var args = Environment.GetCommandLineArgs();
@@ -134,6 +135,7 @@ namespace UWPHook
         /// <returns></returns>
         private async Task LauncherAsync(string[] args)
         {
+            if (args[1].StartsWith("folder:", StringComparison.Ordinal)) { await LaunchFolderGame(args[1]); return; }
             FullScreenLauncher launcher = null;
             //So, for some reason, Steam is now stopping in-home streaming if the launched app is minimized, so not hiding UWPHook's window is doing the trick for now
             if (Settings.Default.StreamMode)
@@ -148,7 +150,7 @@ namespace UWPHook
             }
             else
             {
-                this.Title = "UWPHook: Playing a game";
+                this.Title = AppIdentity.Name + ": jogando";
                 this.Hide();
             }
 
@@ -182,7 +184,7 @@ namespace UWPHook
             catch (Exception e)
             {
                 this.Show();
-                MessageBox.Show(e.Message, "UWPHook", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(e.Message, AppIdentity.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
             }
             finally
             {
@@ -728,6 +730,7 @@ namespace UWPHook
             grid.IsEnabled = true;
             progressBar.Visibility = Visibility.Collapsed;
             RefreshLibraryState();
+            if (e.Result is string error) label.Content = "Não foi possível concluir a detecção: " + error;
         }
 
         /// <summary>
@@ -739,64 +742,21 @@ namespace UWPHook
         {
             try
             {
-                //For some reason I need to enforce Set-ExecutionPolicy none
-                ScriptManager.RunScript("Set-ExecutionPolicy RemoteSigned -Scope Process -Force");
-
-                //Get all installed apps on the system excluding frameworks
-                List<String> installedApps = AppManager.GetInstalledApps();
-
-                //Alfabetic sort
-                installedApps.Sort();
-
-                //Split every app that we couldn't resolve the app name
-                var nameNotFound = (from s in installedApps where s.Contains("double click") select s).ToList<String>();
-
-                //Remove them from the original list
-                installedApps.RemoveAll(item => item.Contains("double click"));
-
-                //Rejoin them in the original list, but putting them into last
-                installedApps = installedApps.Union(nameNotFound).ToList<String>();
-
-                Dictionary<string, ArtworkSelection> savedArtwork;
-                try { savedArtwork = ArtworkSelectionStore.Default.Load(); }
-                catch (Exception)
+                var registered = GameDiscovery.Discover();
+                var games = registered.Where(app => app.IsGame).Concat(ManualGameStore.Default.Load())
+                    .DistinctBy(app => app.Aumid).OrderBy(app => app.Name, StringComparer.CurrentCultureIgnoreCase).ToArray();
+                Application.Current.Dispatcher.Invoke(() =>
                 {
-                    Log.Warning("Could not read saved artwork selections; installed app names will be used.");
-                    savedArtwork = new();
-                }
-                foreach (var app in installedApps)
-                {
-                    //Remove end lines from the String and split both values, I split the appname and the AUMID using |
-                    //I hope no apps have that in their name. Ever.
-                    var values = app.Replace("\r\n", "").Split('|');
-
-                    if (values.Length < 4) continue;
-
-                    if (values.Length >= 3 && AppManager.IsKnownApp(values[2], out string readableName))
-                    {
-                        values[0] = readableName;
-                    }
-
-                    if (!String.IsNullOrWhiteSpace(values[0]))
-                    {
-                        //We get the default square tile to find where the app stores it's icons, then we resolve which one is the widest
-                        string logosPath = Path.GetDirectoryName(values[1]);
-                        string displayName = savedArtwork.TryGetValue(values[2], out var saved) && saved.UseTitle ? saved.Name : values[0];
-                        Application.Current.Dispatcher.BeginInvoke((Action)delegate ()
-                        {
-                            Apps.Entries.Add(new AppEntry() { Name = displayName, Executable = values[3], IconPath = logosPath,
-                                Icon = File.Exists(values[1]) ? values[1] : "", Aumid = values[2], Selected = false });
-                        });
-                    }
-                }
+                    registeredGames = registered;
+                    foreach (var app in games) Apps.Entries.Add(app);
+                });
             }
-            catch (Exception ex)
+            catch (Exception error)
             {
-                Log.Error(ex.Message);
-                MessageBox.Show(ex.Message, "UWPHook", MessageBoxButton.OK, MessageBoxImage.Error);
+                Log.Error(error, "Game discovery failed");
+                e.Result = error.Message;
             }
         }
-
         private void textBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
         {
             if (Apps?.Entries != null)

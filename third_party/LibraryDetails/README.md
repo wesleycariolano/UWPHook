@@ -1,6 +1,6 @@
 # Library details components
 
-UWPHook integrates Millennium 3.6.2 and NativeGameLink 5.0.0 as MIT-licensed
+sGs-app integrates Millennium 3.6.2 and NativeGameLink 5.0.0 as MIT-licensed
 runtime dependencies. Original authors and licenses are preserved here.
 
 Sources:
@@ -8,14 +8,14 @@ Sources:
 * https://github.com/senkumil/NativeGameLink-for-Steam/tree/V5.0.0
 
 `scripts/Prepare-LibraryDetails.ps1` downloads pinned release archives and checks
-SHA-256 before packaging. The resulting archives are embedded into UWPHook.exe;
+SHA-256 before packaging. The resulting archives are embedded into sGs-app.exe;
 there are no separate downloads or installer windows for the end user.
 
 Distribution changes to NativeGameLink:
 * The two embedded distribution API credentials are removed. UWPHook continues
   to use the user's configured key for artwork.
 * Account-achievement writes, card farming and changes to game steam_appid.txt
-  files are disabled in the companion backend. For an absolute UWPHook.exe
+  files are disabled in the companion backend. For an absolute UWPHook.exe or sGs-app.exe
   target, the file-maintenance handshake confirms a successful no-op: the Xbox
   launcher does not initialize Steamworks. Returning an error here prevented
   NativeGameLink from committing the metadata mapping in UWPHook 2.16.0.
@@ -23,7 +23,7 @@ Distribution changes to NativeGameLink:
   retains its boolean, no-op response.
 * The original plugin identifier stays intact for API/path compatibility.
 
-The optional activation action installs the host and companion in the real Steam
+The unified import action installs the host and companion in the real Steam
 folder with Steam closed. It records ownership, preserves other plugins and
 settings, and rolls back failed file writes. Existing unowned installations are
 not overwritten. Deactivation removes only this companion from enabled plugins.

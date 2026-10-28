@@ -12,7 +12,7 @@ namespace UWPHook.LibraryDetails;
 internal static class CompanionInstaller
 {
     internal const string PluginName = "NativeGameLinkForSteam";
-    internal const string PluginVersion = "5.0.0-uwphook.2";
+    internal const string PluginVersion = "5.0.0-uwphook.3";
     private const string Owner = "UWPHook.LibraryDetails";
     private static string Receipt(string steam) => Path.Combine(steam, "millennium", "config", "uwphook-library-details.json");
     internal static bool IsInstalled(string steam) => File.Exists(Receipt(steam))

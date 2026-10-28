@@ -2,20 +2,28 @@
 
 	<PropertyGroup>
 		<RootNamespace>UWPHook</RootNamespace>
-		<AssemblyName>UWPHook</AssemblyName>
+		<AssemblyName>sGs-app</AssemblyName>
+		<Version>3.1.0</Version>
+		<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+		<Title>sGs-app</Title>
+		<Product>sGs-app</Product>
+		<Company>sGs</Company>
+		<Description>Seus jogos, conectados à Steam.</Description>
+		<Copyright>Based on UWPHook by Brian Lima. MIT licenses and original credits preserved.</Copyright>
 		<OutputType>WinExe</OutputType>
 		<TargetFramework>net8.0-windows</TargetFramework>
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<UseWPF>true</UseWPF>
-		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-		<ApplicationIcon>Resources\hook2.ico</ApplicationIcon>
+		<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+		<ApplicationIcon>Resources\sGs-app.ico</ApplicationIcon>
 		<PublishSingleFile>true</PublishSingleFile>
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 		<IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
 	</PropertyGroup>
 	<ItemGroup>
 		<EmbeddedResource Include="Resources\GetAUMIDScript.ps1" />
+		<EmbeddedResource Include="Resources\GetInstalledGames.ps1" />
 		<EmbeddedResource Include="Resources\KnownApps.json">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</EmbeddedResource>
@@ -25,6 +33,8 @@
 		<Resource Include="Resources\BlackTransparent.png" />
 		<Resource Include="Resources\briano.png" />
 		<Resource Include="Resources\hook2.ico" />
+		<Resource Include="Resources\sGs-app.ico" />
+		<Resource Include="Resources\sGs-logo.png" />
 		<Resource Include="Resources\square.png" />
 	</ItemGroup>
 

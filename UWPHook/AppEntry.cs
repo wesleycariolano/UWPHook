@@ -10,8 +10,18 @@ namespace UWPHook
     public class AppEntry : INotifyPropertyChanged
     {
         public string Initial => string.IsNullOrEmpty(Name) ? "?" : Name.Substring(0, 1).ToUpperInvariant();
-        public bool InSteam { get; set; }
-        public string LibraryStatus => InSteam ? "Na sua Steam" : "Instalado no Windows";
+        private bool inSteam;
+        public bool InSteam { get => inSteam; set { inSteam = value; OnPropertyChanged(); OnPropertyChanged(nameof(LibraryStatus)); } }
+        public string LibraryStatus => InSteam ? (UiPreferences.Current.ShowLinkedState ? "✓ Vinculado" : "Na Steam") : "Pronto para vincular";
+        public string PackageName { get; set; } = "";
+        public string InstallDirectory { get; set; } = "";
+        public bool HasGameConfig { get; set; }
+        public bool HasGameExplorer { get; set; }
+        public bool UsesGameLaunchHelper { get; set; }
+        public bool IsGame { get; set; }
+        public string LaunchKind { get; set; } = "xbox";
+        public string ExecutablePath { get; set; } = "";
+        public void RefreshStatus() => OnPropertyChanged(nameof(LibraryStatus));
         private bool _isSelected;
         /// <summary>
         /// Gets or sets if the application is selected

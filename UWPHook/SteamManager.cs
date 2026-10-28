@@ -73,6 +73,14 @@ namespace UWPHook
                 return shortcuts;
             }
 
+            // Steam's valid empty shortcut root is 13 bytes; the upstream
+            // parser rejects everything under 16. Accept only that exact root.
+            if (new FileInfo(shortcutFile).Length < 16)
+            {
+                var bytes = File.ReadAllBytes(shortcutFile);
+                if (bytes.SequenceEqual(VDFSerializer.Serialize(Array.Empty<VDFEntry>()))) return shortcuts;
+                throw new InvalidDataException("O arquivo de atalhos da Steam está incompleto. Restaure um backup antes de importar.");
+            }
             shortcuts = VDFParser.VDFParser.Parse(shortcutFile);
 
             return shortcuts;
