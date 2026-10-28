@@ -210,9 +210,14 @@ using (var config = JsonDocument.Parse(File.ReadAllText(configPath)))
         && config.RootElement.GetProperty("plugins").GetProperty("enabledPlugins").GetArrayLength() == 2,
         "activation preserves other plugins and settings");
 Check(CompanionInstaller.IsInstalled(fakeSteam), "installation records ownership and includes the plugin");
+Check(CompanionInstaller.IsCurrent(fakeSteam), "installation records the current companion revision");
+string receiptPath = Path.Combine(fakeSteam, "millennium", "config", "uwphook-library-details.json");
+File.WriteAllText(receiptPath, File.ReadAllText(receiptPath).Replace(CompanionInstaller.PluginVersion, "5.0.0-uwphook.1"));
+Check(!CompanionInstaller.IsCurrent(fakeSteam), "previous companion revision is detected as needing an update");
 File.WriteAllText(Path.Combine(fakeSteam, "millennium", "lib", "millennium.dll"), "existing-host");
 CompanionInstaller.Install(fakeSteam, host, plugin, Hash(host), Hash(plugin), () => false);
 Check(File.ReadAllText(Path.Combine(fakeSteam, "millennium", "lib", "millennium.dll")) == "existing-host", "reinstall reuses an existing host without downgrading it");
+Check(CompanionInstaller.IsCurrent(fakeSteam), "updating an owned installation refreshes its revision");
 CompanionInstaller.Disable(fakeSteam, () => false);
 using (var config = JsonDocument.Parse(File.ReadAllText(configPath)))
     Check(config.RootElement.GetProperty("plugins").GetProperty("enabledPlugins").EnumerateArray().Select(item => item.GetString()).SequenceEqual(["OtherPlugin"]), "deactivation preserves other enabled plugins");
@@ -257,7 +262,7 @@ using (var stream = bundledAssembly.GetManifestResourceStream("UWPHook.Details.P
     string js = Encoding.UTF8.GetString(files[".millennium/Dist/index.js"]);
     string lua = Encoding.UTF8.GetString(files["backend/main.lua"]);
     Check(!System.Text.RegularExpressions.Regex.IsMatch(js, "[\"'][a-f0-9]{28,40}[\"']"), "bundled companion contains no distribution API credentials");
-    Check(lua.Contains("sync_steam_account_achievements = uwphook_read_only") && !files.Keys.Any(path => path.EndsWith("steam_achievement_sync.ps1")), "bundled integration disables account-achievement writes");
+    Check(lua.Contains("sync_steam_account_achievements = uwphook_policy.disabled") && !files.Keys.Any(path => path.EndsWith("steam_achievement_sync.ps1")), "bundled integration disables account-achievement writes");
 }
 Console.WriteLine($"{passed} checks passed. No live Steam files were modified.");
 

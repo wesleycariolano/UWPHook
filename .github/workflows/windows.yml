@@ -13,10 +13,16 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
       - name: Build and run regression checks
         # Both verified components become resources in the same executable.
         run: |
           ./scripts/Prepare-LibraryDetails.ps1
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm test:companion
           dotnet run --project UWPHook.Tests/UWPHook.Tests.csproj -c Release -p:UseSharedCompilation=false
       - name: Publish Windows executable
         run: dotnet publish UWPHook/UWPHook.csproj -c Release -r win-x64 --self-contained false -o publish -p:UseSharedCompilation=false

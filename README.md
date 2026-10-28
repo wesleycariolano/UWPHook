@@ -24,6 +24,7 @@ and the host they may share. See [component provenance](third_party/LibraryDetai
 
 ## What changed
 
+* 2.16.1 fixes the integrated companion's `Could not disable steam_appid.txt` linking error. UWPHook launchers now receive the required confirmed no-op response, without scanning or changing game files. Existing installations show when the included companion needs updating.
 * Recover an existing SteamGridDB API key after changing version or executable path. A missing key is explicitly reported in the export result, and first-run setup no longer clears an existing key.
 * Choose the correct SteamGridDB game by title and release year, instead of silently using the first search result. This distinguishes Modern Warfare 3 (2011) from Modern Warfare III (2023).
 * Search again with an edited title, optionally use the selected title in Steam, and remember the choice by Xbox AUMID across restarts.
@@ -61,6 +62,8 @@ installed client; automated checks use simulated metadata and separate files.
 
 ```powershell
 ./scripts/Prepare-LibraryDetails.ps1
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm test:companion
 dotnet restore UWPHook/UWPHook.csproj
 dotnet build UWPHook/UWPHook.csproj -c Release
 dotnet run --project UWPHook.Tests/UWPHook.Tests.csproj -c Release
@@ -73,6 +76,8 @@ hashes and prepares the embedded distribution. Tests cover metadata selection,
 settings migration, binary VDF preservation, component integrity, archive paths,
 installation rollback, ownership conflicts, existing plugins and mapping backups.
 They do not activate the extension or modify a live Steam library.
+The companion runtime checks execute the packaged Lua backend and the packaged
+JavaScript handshake, including mapping persistence, against an in-memory host.
 
 ---
 

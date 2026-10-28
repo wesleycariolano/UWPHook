@@ -14,8 +14,13 @@ there are no separate downloads or installer windows for the end user.
 Distribution changes to NativeGameLink:
 * The two embedded distribution API credentials are removed. UWPHook continues
   to use the user's configured key for artwork.
-* Account-achievement writes, card farming, administrator-prompt suppression and
-  changes to game steam_appid.txt files are disabled in the companion backend.
+* Account-achievement writes, card farming and changes to game steam_appid.txt
+  files are disabled in the companion backend. For an absolute UWPHook.exe
+  target, the file-maintenance handshake confirms a successful no-op: the Xbox
+  launcher does not initialize Steamworks. Returning an error here prevented
+  NativeGameLink from committing the metadata mapping in UWPHook 2.16.0.
+  Unrelated executable targets remain blocked. The upstream prompt function
+  retains its boolean, no-op response.
 * The original plugin identifier stays intact for API/path compatibility.
 
 The optional activation action installs the host and companion in the real Steam

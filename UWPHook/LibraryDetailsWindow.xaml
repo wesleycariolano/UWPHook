@@ -37,7 +37,7 @@
                 <TextBlock x:Name="ComponentStatus" FontWeight="SemiBold" TextWrapping="Wrap"/>
                 <TextBlock Margin="0,5,0,8" TextWrapping="Wrap" Text="A ativação instala o componente de interface da Steam incluído neste UWPHook. Feche a Steam antes de ativar ou desativar; abra-a novamente para ver a ficha. O jogo continua iniciando pelo Xbox."/>
                 <StackPanel Orientation="Horizontal">
-                    <Button Content="Ativar ficha na Steam" Click="Activate_Click" Padding="12,5" Margin="0,0,12,0"/>
+                    <Button Content="Ativar / atualizar ficha" Click="Activate_Click" Padding="12,5" Margin="0,0,12,0"/>
                     <Button Content="Desativar ficha" Click="Disable_Click" Padding="12,5"/>
                 </StackPanel>
             </StackPanel>

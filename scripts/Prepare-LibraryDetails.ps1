@@ -26,17 +26,18 @@ try {
             $text = [regex]::Replace($text, '["''][a-f0-9]{28,40}["'']', '""')
         }
         if($entry.FullName.EndsWith('/backend/main.lua')) {
+            $policySource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'library-details-policy.lua'))
             $policy = @"
 -- UWPHook distribution: metadata integration never writes account achievements
 -- or starts farming tools, and never changes game licensing files or elevation.
-local function uwphook_read_only()
-    return cjson.encode({ ok = false, error = 'disabled_in_uwphook_distribution' })
-end
-sync_steam_account_achievements = uwphook_read_only
-start_steam_card_farming = uwphook_read_only
-suppress_admin_prompt = uwphook_read_only
-neutralize_steam_appid_file = uwphook_read_only
-restore_steam_appid_file = uwphook_read_only
+local uwphook_policy = (function()
+$policySource
+end)()(cjson)
+sync_steam_account_achievements = uwphook_policy.disabled
+start_steam_card_farming = uwphook_policy.disabled
+-- The upstream suppress_admin_prompt already returns boolean true without I/O.
+neutralize_steam_appid_file = uwphook_policy.neutralize
+restore_steam_appid_file = uwphook_policy.restore
 
 "@
             if(!$text.Contains('return {' + "`r`n") -and !$text.Contains('return {' + "`n")) {throw 'Backend entry point format changed'}
@@ -49,5 +50,5 @@ restore_steam_appid_file = uwphook_read_only
         try {$writer.Write($text)} finally {$writer.Dispose()}
     }
 } finally {$source.Dispose();$target.Dispose();$targetStream.Dispose()}
-@{HostVersion='3.6.2';PluginVersion='5.0.0-uwphook.1';HostHash=$components[0].Hash;PluginHash=(Get-FileHash -LiteralPath $targetPath).Hash} | ConvertTo-Json | Set-Content (Join-Path $CacheDirectory 'components.json') -Encoding utf8
+@{HostVersion='3.6.2';PluginVersion='5.0.0-uwphook.2';HostHash=$components[0].Hash;PluginHash=(Get-FileHash -LiteralPath $targetPath).Hash} | ConvertTo-Json | Set-Content (Join-Path $CacheDirectory 'components.json') -Encoding utf8
 Write-Output 'Pinned library details components prepared and verified.'

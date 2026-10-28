@@ -1,0 +1,8 @@
+{
+  "name": "uwphook-companion-contract-tests",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.25.0",
+  "scripts": { "test:companion": "node scripts/check-library-details.mjs" },
+  "devDependencies": { "fengari": "0.1.5", "fflate": "0.8.2", "typescript": "5.9.3" }
+}

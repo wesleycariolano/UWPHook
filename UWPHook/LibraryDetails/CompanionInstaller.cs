@@ -12,11 +12,26 @@ namespace UWPHook.LibraryDetails;
 internal static class CompanionInstaller
 {
     internal const string PluginName = "NativeGameLinkForSteam";
+    internal const string PluginVersion = "5.0.0-uwphook.2";
     private const string Owner = "UWPHook.LibraryDetails";
     private static string Receipt(string steam) => Path.Combine(steam, "millennium", "config", "uwphook-library-details.json");
     internal static bool IsInstalled(string steam) => File.Exists(Receipt(steam))
         && File.Exists(Path.Combine(steam, "wsock32.dll"))
         && File.Exists(Path.Combine(steam, "millennium", "plugins", PluginName, "plugin.json"));
+
+    internal static bool IsCurrent(string steam)
+    {
+        if (!IsInstalled(steam)) return false;
+        try
+        {
+            using var receipt = JsonDocument.Parse(File.ReadAllText(Receipt(steam)));
+            return receipt.RootElement.TryGetProperty("Owner", out var owner) && owner.GetString() == Owner
+                && receipt.RootElement.TryGetProperty("PluginVersion", out var version) && version.GetString() == PluginVersion;
+        }
+        catch (JsonException) { return false; }
+        catch (IOException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
+    }
 
     internal static void InstallBundled(string steam)
     {
@@ -95,7 +110,7 @@ internal static class CompanionInstaller
         writes[configPath] = Encoding.UTF8.GetBytes(config.ToJsonString(new JsonSerializerOptions(JsonSerializerOptions.Default) { WriteIndented = true }));
         writes[Receipt(steam)] = JsonSerializer.SerializeToUtf8Bytes(new
         {
-            Owner, HostVersion = hasHost ? "existing" : "3.6.2", PluginVersion = "5.0.0-uwphook.1",
+            Owner, HostVersion = hasHost ? "existing" : "3.6.2", PluginVersion,
             Files = writes.Keys.Select(path => Path.GetRelativePath(steam, path)).ToArray()
         });
         if (steamRunning()) throw new InvalidOperationException("A Steam foi aberta durante a preparação. Feche-a e tente novamente.");

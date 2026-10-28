@@ -272,3 +272,4 @@ Setup/UWPHook.exe
 
 # Verified release components embedded at build time
 .bundles/
+node_modules/

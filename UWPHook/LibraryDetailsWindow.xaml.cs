@@ -28,9 +28,11 @@ public partial class LibraryDetailsWindow : Window
     }
 
     private void RefreshComponent() => ComponentStatus.Text =
-        Directory.Exists(steam) && CompanionInstaller.IsInstalled(steam)
+        Directory.Exists(steam) && CompanionInstaller.IsCurrent(steam)
             ? "Componente incluído instalado. Reabra a Steam após salvar a ficha."
-            : "A ficha completa ainda não está ativada na Steam.";
+            : CompanionInstaller.IsInstalled(steam)
+                ? "Há uma atualização incluída. Feche a Steam e clique em Ativar / atualizar ficha."
+                : "A ficha completa ainda não está ativada na Steam.";
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
@@ -114,7 +116,8 @@ public partial class LibraryDetailsWindow : Window
                 var process = Process.Start(new ProcessStartInfo(Environment.ProcessPath!, "--install-library-details")
                 { UseShellExecute = true, Verb = "runas" });
                 if (process != null) await process.WaitForExitAsync();
-                Status.Text = CompanionInstaller.IsInstalled(steam) ? "Componentes instalados. Salve a ficha e reabra a Steam." : "A instalação não foi concluída.";
+                Status.Text = process?.ExitCode == 0 && CompanionInstaller.IsCurrent(steam)
+                    ? "Componentes instalados. Salve a ficha e reabra a Steam." : "A instalação não foi concluída.";
             }
             catch (Win32Exception) { Status.Text = "Ativação cancelada na confirmação do Windows."; }
         }
