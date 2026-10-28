@@ -33,11 +33,17 @@ namespace UWPHook
         static LoggingLevelSwitch levelSwitch = new LoggingLevelSwitch();
         private bool maintenanceMode;
 
-        public GamesWindow()
+        private readonly bool previewMode;
+        public GamesWindow() : this(false) { }
+
+        internal GamesWindow(bool previewMode)
         {
+            this.previewMode = previewMode;
             InitializeComponent();
             Log.Debug("Init GamesWindow");
             Apps = new AppEntryModel();
+            if (previewMode) return;
+            Closing += (_, e) => { if (importBusy) e.Cancel = true; };
             var args = Environment.GetCommandLineArgs();
 
             // Init log file to AppData\Roaming\Briano\UWPHook directory with size rotation on 10Mb with max 5 files
@@ -227,8 +233,6 @@ namespace UWPHook
         /// <param name="e"></param>
         private async void ExportButton_Click(object sender, RoutedEventArgs e)
         {
-            listGames.CommitEdit(System.Windows.Controls.DataGridEditingUnit.Cell, true);
-            listGames.CommitEdit(System.Windows.Controls.DataGridEditingUnit.Row, true);
             if (!Apps.Entries.Any(app => app.Selected))
             {
                 MessageBox.Show("Select at least one app to export.", "UWPHook");
@@ -698,12 +702,13 @@ namespace UWPHook
         /// <param name="e"></param>
         private void LoadButton_Click(object sender, RoutedEventArgs e)
         {
+            if (importBusy || bwrLoad?.IsBusy == true) return;
             bwrLoad = new BackgroundWorker();
             bwrLoad.DoWork += Bwr_DoWork;
             bwrLoad.RunWorkerCompleted += Bwr_RunWorkerCompleted;
 
             grid.IsEnabled = false;
-            label.Content = "Loading your installed apps";
+            label.Content = "Encontrando os seus jogos e aplicativos…";
 
             progressBar.Visibility = Visibility.Visible;
             Apps.Entries = new System.Collections.ObjectModel.ObservableCollection<AppEntry>();
@@ -720,12 +725,9 @@ namespace UWPHook
         {
             listGames.ItemsSource = Apps.Entries;
 
-            listGames.Columns[2].IsReadOnly = true;
-            listGames.Columns[3].IsReadOnly = true;
-
             grid.IsEnabled = true;
             progressBar.Visibility = Visibility.Collapsed;
-            label.Content = "Installed Apps";
+            RefreshLibraryState();
         }
 
         /// <summary>
@@ -782,7 +784,8 @@ namespace UWPHook
                         string displayName = savedArtwork.TryGetValue(values[2], out var saved) && saved.UseTitle ? saved.Name : values[0];
                         Application.Current.Dispatcher.BeginInvoke((Action)delegate ()
                         {
-                            Apps.Entries.Add(new AppEntry() { Name = displayName, Executable = values[3], IconPath = logosPath, Aumid = values[2], Selected = false });
+                            Apps.Entries.Add(new AppEntry() { Name = displayName, Executable = values[3], IconPath = logosPath,
+                                Icon = File.Exists(values[1]) ? values[1] : "", Aumid = values[2], Selected = false });
                         });
                     }
                 }
@@ -796,8 +799,9 @@ namespace UWPHook
 
         private void textBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
         {
-            if (Apps.Entries != null)
+            if (Apps?.Entries != null)
             {
+                if (SearchHint != null) SearchHint.Visibility = string.IsNullOrEmpty(textBox.Text) ? Visibility.Visible : Visibility.Collapsed;
                 if (!String.IsNullOrEmpty(textBox.Text) && Apps.Entries.Count > 0)
                 {
                     listGames.Items.Filter = new Predicate<object>(Contains);
@@ -863,8 +867,8 @@ namespace UWPHook
         private readonly string exportGridDirectory = Path.Combine(Path.GetTempPath(), "UWPHook", "grid-" + Guid.NewGuid().ToString("N"));
         private void SettingsButton_Click(object sender, RoutedEventArgs e)
         {
-            SettingsWindow window = new SettingsWindow();
-            window.ShowDialog();
+            SteamPathText.Text = SteamManager.GetSteamFolder() ?? "Steam não encontrada neste computador.";
+            PreferencesPanel.Visibility = Visibility.Visible;
         }
 
         private void LibraryDetailsButton_Click(object sender, RoutedEventArgs e)
@@ -886,20 +890,8 @@ namespace UWPHook
         /// <param name="e"></param>
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            if (maintenanceMode) return;
-            if (!Settings.Default.OfferedSteamGridDB)
-            {
-                Settings.Default.OfferedSteamGridDB = true;
-                Settings.Default.Save();
-
-                if (!string.IsNullOrWhiteSpace(Settings.Default.SteamGridDbApiKey)) return;
-
-                var boxResult = MessageBox.Show("Do you want to automatically import grid images for imported games?", "UWPHook", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (boxResult == MessageBoxResult.Yes)
-                {
-                    SettingsButton_Click(this, null);
-                }
-            }
+            if (maintenanceMode || previewMode) return;
+            ConnectionStatus.Text = Directory.Exists(SteamManager.GetSteamFolder()) ? "●  Steam encontrada" : "○  Steam não encontrada";
         }
 
         public static void SetLogLevel()

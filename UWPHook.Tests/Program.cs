@@ -10,6 +10,31 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using VDFParser.Models;
 
+if (args.Length >= 2 && args[0] == "--render-main")
+{
+    Exception? renderError = null;
+    var thread = new Thread(() =>
+    {
+        try
+        {
+            var application = new UWPHook.App(); application.InitializeComponent();
+            var window = new GamesWindow(true);
+            window.PreparePreview(args.ElementAtOrDefault(2) ?? "");
+            var content = (System.Windows.Controls.Grid)window.Content;
+            content.Measure(new System.Windows.Size(1320, 860)); content.Arrange(new System.Windows.Rect(0, 0, 1320, 860)); content.UpdateLayout();
+            var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(1320, 860, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+            bitmap.Render(content);
+            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder(); encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+            using var output = File.Create(args[1]); encoder.Save(output);
+        }
+        catch (Exception error) { renderError = error; }
+    });
+    thread.SetApartmentState(ApartmentState.STA); thread.Start(); thread.Join();
+    if (renderError != null) throw renderError;
+    Console.WriteLine("Unified interface rendered with demonstration data; no Steam files changed.");
+    return;
+}
+
 if (args.Length == 2 && args[0] == "--render-details")
 {
     Exception? renderError = null;
@@ -211,6 +236,7 @@ using (var config = JsonDocument.Parse(File.ReadAllText(configPath)))
         "activation preserves other plugins and settings");
 Check(CompanionInstaller.IsInstalled(fakeSteam), "installation records ownership and includes the plugin");
 Check(CompanionInstaller.IsCurrent(fakeSteam), "installation records the current companion revision");
+Check(CompanionInstaller.IsEnabled(fakeSteam), "installed presentation is enabled for the unified workflow");
 string receiptPath = Path.Combine(fakeSteam, "millennium", "config", "uwphook-library-details.json");
 File.WriteAllText(receiptPath, File.ReadAllText(receiptPath).Replace(CompanionInstaller.PluginVersion, "5.0.0-uwphook.1"));
 Check(!CompanionInstaller.IsCurrent(fakeSteam), "previous companion revision is detected as needing an update");
@@ -219,6 +245,7 @@ CompanionInstaller.Install(fakeSteam, host, plugin, Hash(host), Hash(plugin), ()
 Check(File.ReadAllText(Path.Combine(fakeSteam, "millennium", "lib", "millennium.dll")) == "existing-host", "reinstall reuses an existing host without downgrading it");
 Check(CompanionInstaller.IsCurrent(fakeSteam), "updating an owned installation refreshes its revision");
 CompanionInstaller.Disable(fakeSteam, () => false);
+Check(!CompanionInstaller.IsEnabled(fakeSteam), "unified workflow detects when presentation must be re-enabled");
 using (var config = JsonDocument.Parse(File.ReadAllText(configPath)))
     Check(config.RootElement.GetProperty("plugins").GetProperty("enabledPlugins").EnumerateArray().Select(item => item.GetString()).SequenceEqual(["OtherPlugin"]), "deactivation preserves other enabled plugins");
 string unowned = Path.Combine(folder, "UnownedSteam");
@@ -232,12 +259,46 @@ Directory.CreateDirectory(mappingFolder);
 File.WriteAllText(Path.Combine(mappingFolder, "mappings.backup.json"), "{\"123\":\"456\"}");
 DetailsStore.Link(mappingFolder, new Dictionary<uint, uint> { [2437190603] = 3595270 });
 Check(DetailsStore.Read<string>(Path.Combine(mappingFolder, "mappings.json")).Count == 2, "details mappings retain the existing backup and link the correct Steam AppID");
+Check(DetailsStore.Read<string>(Path.Combine(mappingFolder, "mappings.json"))["shortcut:2437190603"] == "3595270", "metadata uses the committed shortcut namespace expected by the Steam frontend");
 File.WriteAllText(Path.Combine(mappingFolder, "mappings.json"), "broken");
 Reject(() => DetailsStore.Link(mappingFolder, new Dictionary<uint, uint> { [2] = 3 }), "corrupt companion mappings are not overwritten");
 Check(File.ReadAllText(Path.Combine(mappingFolder, "mappings.json")) == "broken", "failed mapping update preserves source bytes");
 var detailStore = new DetailsStore(Path.Combine(folder, "chosen-details.json"));
 detailStore.Save("xbox!cod", new(3595270, "Modern Warfare III"));
 Check(detailStore.Find("xbox!cod")?.Id == 3595270, "Steam metadata selection persists independently of the launch target");
+
+// A complete import commits the real binary shortcut and its mapping together.
+string importSteam = Path.Combine(folder, "UnifiedSteam"), importState = Path.Combine(folder, "UnifiedState"), importApp = Path.Combine(folder, "UnifiedApp");
+Directory.CreateDirectory(Path.Combine(importSteam, "userdata", "777", "config"));
+Directory.CreateDirectory(Path.Combine(importSteam, "userdata", "888", "config"));
+File.WriteAllText(Path.Combine(importSteam, "steam.exe"), "fixture");
+string importVdf = Path.Combine(importSteam, "userdata", "777", "config", "shortcuts.vdf");
+var importPlan = new ImportGame(new AppEntry { Aumid = "xbox!unified", Name = "Old name", Executable = "bootstrapper.exe" },
+    new(3595270, "Call of Duty®: Modern Warfare® III", "Descrição", "Studio", "Publisher", "2023", "Português"));
+var retained = new VDFEntry { appid = unchecked((int)2838666077u), AppName = "Previous name", Exe = "C:\\Old\\UWPHook.exe", LaunchOptions = "xbox!unified bootstrapper.exe", Tags = ["Favorites"], LastPlayTime = 72, IsHidden = 1 };
+File.WriteAllBytes(importVdf, VDFParser.VDFSerializer.Serialize([retained, unrelated]));
+var importResult = UnifiedImporter.Import(importSteam, "C:\\New\\UWPHook.exe", [importPlan], importState, importApp, () => false);
+var imported = VDFParser.VDFParser.Parse(importVdf);
+Check(imported.Length == 2 && imported[0].appid == retained.appid && imported[0].LastPlayTime == 72 && imported[0].IsHidden == 1
+    && imported[0].Tags.SequenceEqual(["Favorites"]) && imported[1].appid == unrelated.appid, "unified import preserves the existing identity, history, visibility, tags and unrelated entries");
+Check(imported[0].AppName == importPlan.Game.Name && imported[0].Exe == "C:\\New\\UWPHook.exe" && imported[0].LaunchOptions == "xbox!unified bootstrapper.exe", "canonical edition is assigned before Steam starts while Xbox launch arguments remain intact");
+var importMappings = DetailsStore.Read<string>(Path.Combine(importState, "mappings.json"));
+Check(importMappings["shortcut:2838666077"] == "3595270" && !importMappings.ContainsKey("2838666077"), "one import commits a mapping recognized without a Steam linking dialog");
+var freshEntries = VDFParser.VDFParser.Parse(Path.Combine(importSteam, "userdata", "888", "config", "shortcuts.vdf"));
+Check(freshEntries.Length == 1 && freshEntries[0].AppName == importPlan.Game.Name
+    && importMappings[DetailsStore.MappingKey(unchecked((uint)freshEntries[0].appid))] == "3595270", "first import into a fresh Steam profile creates a pre-linked shortcut in one action");
+Check(File.ReadAllBytes(Path.Combine(importState, "mappings.json")).SequenceEqual(File.ReadAllBytes(Path.Combine(importState, "mappings.backup.json")))
+    && Directory.Exists(importResult.Backup), "import includes a persistent mapping backup and a restore manifest");
+var priorVdf = File.ReadAllBytes(importVdf); var priorMappings = File.ReadAllBytes(Path.Combine(importState, "mappings.json"));
+Reject(() => UnifiedImporter.Import(importSteam, "C:\\New\\UWPHook.exe", [importPlan], importState, importApp, () => true), "unified import refuses a running Steam client");
+Reject(() => UnifiedImporter.Import(importSteam, "C:\\Different\\UWPHook.exe", [importPlan], importState, importApp, () => false,
+    beforeWrite: count => { if (count == 3) throw new IOException("injected import failure"); }), "unified import rolls back a failure after writing the shortcuts and mapping");
+Check(priorVdf.SequenceEqual(File.ReadAllBytes(importVdf)) && priorMappings.SequenceEqual(File.ReadAllBytes(Path.Combine(importState, "mappings.json"))), "failed unified import restores the original shortcut and mapping bytes");
+UnifiedImporter.Import(importSteam, "C:\\New\\UWPHook.exe", [importPlan], importState, importApp, () => false);
+Check(VDFParser.VDFParser.Parse(importVdf).Length == 2, "repeating the unified action does not duplicate the game");
+Check(GamesWindow.NormalizeEdition("Call of Duty®: Modern Warfare® III") == GamesWindow.NormalizeEdition("Call of Duty Modern Warfare III")
+    && GamesWindow.NormalizeEdition("Modern Warfare 3") != GamesWindow.NormalizeEdition("Modern Warfare III"), "automatic edition matching keeps the 2011 and 2023 titles distinct");
+if (args.Length == 2 && args[0] == "--contract-output") File.WriteAllText(args[1], JsonSerializer.Serialize(importMappings));
 Check(SteamCatalog.PlainText("Português&lt;teste&gt;<br><strong>*</strong>áudio") == "Português<teste>\n*áudio", "Steam descriptions and language labels render as plain text");
 using (var catalog = new SteamCatalog(new FakeHandler(HttpStatusCode.OK, "{\"items\":[{\"id\":3595270,\"name\":\"Modern Warfare III\"}]}")))
     Check((await catalog.Search("Modern Warfare III")).Single().Id == 3595270, "Steam catalog search keeps the confirmed official ID");

@@ -136,9 +136,38 @@ try {
 
   // Follow the real successful protection reply with the packaged mapping commit.
   check(await protect('neutralize', {exe_path: 'C:\\UWPHook\\UWPHook.exe', start_dir:'C:\\UWPHook'}), 'Link transaction passes the formerly failing step');
-  const result = JSON.parse(backend('update_mappings', JSON.stringify({set:{'2838666077':'3595270'},remove:[]})));
-  check(result.ok && JSON.parse(backend('get_all_mappings', '{}'))['2838666077'] === '3595270', 'Packaged backend commits the MWIII mapping after protection');
-  execute("assert(fixture_state['mappings.backup.json']['2838666077'] == '3595270')");
+  const result = JSON.parse(backend('update_mappings', JSON.stringify({set:{'shortcut:2838666077':'3595270'},remove:[]})));
+  check(result.ok && JSON.parse(backend('get_all_mappings', '{}'))['shortcut:2838666077'] === '3595270', 'Packaged backend commits the MWIII mapping after protection');
+  execute("assert(fixture_state['mappings.backup.json']['shortcut:2838666077'] == '3595270')");
   check(true, 'Committed mapping has a persistent backup');
+
+  // Validate the C# importer's actual output against the compiled extension's
+  // shortcutAlreadyLinked predicate (which suppresses the native review modal).
+  const declarations = [];
+  function findDeclarations(node) { if (ts.isFunctionDeclaration(node)) declarations.push(node); ts.forEachChild(node, findDeclarations); }
+  findDeclarations(ast);
+  const keyFunctions = declarations.filter(node => node.parameters.length === 1
+    && node.body?.statements.length === 1 && node.body.getText(ast).includes('return"shortcut:"+String('));
+  assert.equal(keyFunctions.length, 1, 'The committed shortcut namespace must have one implementation');
+  const keyFunction = keyFunctions[0];
+  const linkedFunctions = declarations.filter(node => node.parameters.length === 1 && node.body?.statements.length === 1
+    && ts.isReturnStatement(node.body.statements[0]) && ts.isBinaryExpression(node.body.statements[0].expression)
+    && node.body.statements[0].expression.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken && node.body.getText(ast).length < 220
+    && node.body.getText(ast).includes('.test(String(') && node.body.getText(ast).includes(keyFunction.name.text + '('));
+  assert.equal(linkedFunctions.length, 1, 'Packaged linked-shortcut predicate must be identifiable');
+  const linked = linkedFunctions[0], returned = linked.body.statements[0].expression;
+  const mappingVariable = returned.right.arguments[0].arguments[0].left.expression.getText(ast);
+  const verifiedFunction = returned.left.expression.getText(ast);
+  const fixture = JSON.parse(fs.readFileSync(new URL('../.bundles/import-contract.json', import.meta.url), 'utf8'));
+  const registryContext = { [verifiedFunction]: () => true,
+    [mappingVariable]: fixture, [keyFunction.name.text]: vm.runInNewContext(`(${keyFunction.getText(ast)})`) };
+  const alreadyLinked = vm.runInNewContext(`(${linked.getText(ast)})`, registryContext);
+  check(alreadyLinked(2838666077), 'One-action C# import is already linked in the packaged Steam frontend');
+  check(Object.keys(fixture).filter(key => key.startsWith('shortcut:')).every(key => alreadyLinked(Number(key.slice(9)))),
+    'Fresh-profile and existing-profile imports both bypass manual linking');
+  registryContext[mappingVariable] = {'2838666077':'3595270'};
+  check(!alreadyLinked(2838666077), 'Legacy bare-number mappings reproduce the extra linking step');
+  registryContext[mappingVariable] = fixture;
+  check(alreadyLinked(2838666077), 'Imported mappings bypass the native-add linking review predicate');
   console.log(`${checks} companion runtime checks passed. No live Steam files were accessed.`);
 } finally { lua.lua_close(state); }

@@ -23,6 +23,17 @@ internal sealed class DetailsStore
         if (mappings.Count == 0) return;
         string primary = Path.Combine(directory, "mappings.json");
         string backup = Path.Combine(directory, "mappings.backup.json");
+        var existing = MergeMappings(directory, mappings);
+        Write(primary, existing);
+        Write(backup, existing);
+    }
+
+    internal static string MappingKey(uint shortcutId) => "shortcut:" + shortcutId;
+
+    internal static Dictionary<string, string> MergeMappings(string directory, IReadOnlyDictionary<uint, uint> mappings)
+    {
+        string primary = Path.Combine(directory, "mappings.json");
+        string backup = Path.Combine(directory, "mappings.backup.json");
         var existing = Read<string>(primary);
         // NativeGameLink can recover an empty primary from its backup. Preserve
         // those records before writing new mappings instead of discarding them.
@@ -30,10 +41,12 @@ internal sealed class DetailsStore
         foreach (var pair in mappings)
         {
             if (pair.Key == 0 || pair.Value == 0) throw new ArgumentException("Identificador inválido.");
-            existing[pair.Key.ToString()] = pair.Value.ToString();
+            existing[MappingKey(pair.Key)] = pair.Value.ToString();
+            // Versions 2.16.x wrote bare numbers, which NativeGameLink treats as
+            // title aliases. Remove only a matching legacy record we replace.
+            if (existing.GetValueOrDefault(pair.Key.ToString()) == pair.Value.ToString()) existing.Remove(pair.Key.ToString());
         }
-        Write(primary, existing);
-        Write(backup, existing);
+        return existing;
     }
 
     internal static Dictionary<string, T> Read<T>(string path) => File.Exists(path)

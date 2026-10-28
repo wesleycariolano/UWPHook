@@ -9,6 +9,9 @@ namespace UWPHook
 {
     public class AppEntry : INotifyPropertyChanged
     {
+        public string Initial => string.IsNullOrEmpty(Name) ? "?" : Name.Substring(0, 1).ToUpperInvariant();
+        public bool InSteam { get; set; }
+        public string LibraryStatus => InSteam ? "Na sua Steam" : "Instalado no Windows";
         private bool _isSelected;
         /// <summary>
         /// Gets or sets if the application is selected

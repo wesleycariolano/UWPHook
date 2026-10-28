@@ -33,6 +33,16 @@ internal static class CompanionInstaller
         catch (UnauthorizedAccessException) { return false; }
     }
 
+    internal static bool IsEnabled(string steam)
+    {
+        try
+        {
+            using var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(steam, "millennium", "config", "config.json")));
+            return json.RootElement.GetProperty("plugins").GetProperty("enabledPlugins").EnumerateArray().Any(value => value.GetString() == PluginName);
+        }
+        catch (Exception error) when (error is JsonException or IOException or KeyNotFoundException or InvalidOperationException) { return false; }
+    }
+
     internal static void InstallBundled(string steam)
     {
         var assembly = Assembly.GetExecutingAssembly();

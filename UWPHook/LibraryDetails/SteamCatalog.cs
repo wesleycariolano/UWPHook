@@ -8,7 +8,7 @@ namespace UWPHook.LibraryDetails;
 
 internal sealed record SteamGame(uint Id, string Name, string Release = "");
 internal sealed record SteamGameDetails(uint Id, string Name, string Description, string Developers,
-    string Publishers, string Release, string Languages);
+    string Publishers, string Release, string Languages, string Header = "", string Background = "");
 
 internal sealed class SteamCatalog : IDisposable
 {
@@ -64,7 +64,8 @@ internal sealed class SteamCatalog : IDisposable
             throw new InvalidDataException("A ficha retornada não corresponde ao jogo escolhido.");
         string release = data.TryGetProperty("release_date", out var date) ? Text(date, "date") : "";
         return new(appId, PlainText(Text(data, "name")), PlainText(Text(data, "short_description")),
-            List(data, "developers"), List(data, "publishers"), release, PlainText(Text(data, "supported_languages")));
+            List(data, "developers"), List(data, "publishers"), release, PlainText(Text(data, "supported_languages")),
+            Text(data, "header_image"), Text(data, "background_raw"));
     }
 
     internal static string PlainText(string html) => WebUtility.HtmlDecode(Regex.Replace(
