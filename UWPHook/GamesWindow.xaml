@@ -1,45 +1,77 @@
-﻿<Window x:Class="UWPHook.GamesWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        xmlns:local="clr-namespace:UWPHook"
-        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
-        Background="{DynamicResource MaterialDesignPaper}"
-        TextElement.FontWeight="Medium"
-        TextElement.FontSize="14"
-        FontFamily="Segoe UI Light"
-        mc:Ignorable="d"
-        Title="UWPHook" Height="600" Width="800" Icon="/Resources/hook2.ico" Loaded="Window_Loaded">
-    <Grid x:Name="grid">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="28*"/>
-            <RowDefinition Height="144*"/>
-            <RowDefinition Height="19*"/>
-        </Grid.RowDefinitions>
-        <materialDesign:ColorZone Padding="16" materialDesign:ShadowAssist.Darken="True" Mode="PrimaryMid" Height="80">
-            <Label x:Name="label1" Content="Welcome to UWPHook, the easier way to add UWP apps and XGP games and apps to Steam!" HorizontalAlignment="Left" Margin="172,-14,0,0" VerticalAlignment="Top" Foreground="#DDFFFFFF"/>
-        </materialDesign:ColorZone>
-        <Image x:Name="image" HorizontalAlignment="Left" Width="178" Height="80" VerticalAlignment="Top" Source="Resources/WhiteTransparent.png" Stretch="UniformToFill" ToolTip="Welcome to UWPHook, add your UWP apps and games to Steam!"/>
-        <Button x:Name="settingsButton" Click="SettingsButton_Click"  Style="{StaticResource MaterialDesignFloatingActionMiniLightButton}"
-                        Margin="0,6,10,0" HorizontalAlignment="Right"
-                        ToolTip="Settings/About" VerticalAlignment="Top">
-            <materialDesign:PackIcon Kind="Settings" Height="24" Width="24" />
-        </Button>
-        <Button Click="LoadButton_Click" Style="{StaticResource MaterialDesignFloatingActionMiniLightButton}"
-                        Margin="0,51,10,0" HorizontalAlignment="Right"
-                        ToolTip="Load installed UWP Apps" VerticalAlignment="Top" Grid.RowSpan="2">
-            <materialDesign:PackIcon Kind="Reload" Height="24" Width="24" />
-        </Button>
-        <Grid Margin="10" Grid.Row="1">
-            <DataGrid x:Name="listGames" Margin="0,25,0,0" CanUserSortColumns="True" CanUserAddRows="False"
-                       materialDesign:DataGridAssist.CellPadding="4 2 2 2" materialDesign:DataGridAssist.ColumnHeaderPadding="4 2 2 2"/>
-            <Label x:Name="label" Content="Press 'Load installed apps' to get a list of installed titles." HorizontalAlignment="Left" Margin="0,-10,0,0" VerticalAlignment="Top"/>
-        </Grid>
-        <Button Content="Export selected apps to Steam" Click="ExportButton_Click" HorizontalAlignment="Right" Margin="0,0,10,10" Grid.Row="2" VerticalAlignment="Bottom" Width="227"/>
-        <ProgressBar Visibility="Collapsed" x:Name="progressBar" Margin="10,215,10,174" Grid.Row="1" IsIndeterminate="True" />
-        <Label Content="Filter:" HorizontalAlignment="Left" Margin="5,16,0,0" Grid.Row="2" VerticalAlignment="Top"/>
-        <TextBox x:Name="textBox" HorizontalAlignment="Left" Height="25" Margin="50,17,0,0" Grid.Row="2" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="271" TextChanged="textBox_TextChanged"/>
+<Window x:Class="UWPHook.GamesWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+ Title="sGs-app" Width="1320" Height="860" MinWidth="1120" MinHeight="740"
+ Background="#0C1118" Foreground="#EEF3F8" FontFamily="Segoe UI" FontSize="13" WindowStyle="None" ResizeMode="CanResize"
+ WindowStartupLocation="CenterScreen" Icon="pack://application:,,,/sGs-app;component/Resources/sGs-app.ico" Loaded="Window_Loaded">
+ <shell:WindowChrome.WindowChrome><shell:WindowChrome CaptionHeight="44" ResizeBorderThickness="6" GlassFrameThickness="0"/></shell:WindowChrome.WindowChrome>
+ <Window.Resources>
+  <SolidColorBrush x:Key="Muted" Color="#94A2B4"/>
+  <Style TargetType="Button">
+   <Setter Property="Foreground" Value="#EAF0F7"/><Setter Property="Background" Value="#1C2938"/><Setter Property="BorderBrush" Value="#314154"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="16,10"/><Setter Property="Cursor" Value="Hand"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Body" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Body" Property="Opacity" Value="0.8"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="Body" Property="Opacity" Value="0.4"/></Trigger><Trigger Property="Tag" Value="linked"><Setter TargetName="Body" Property="Opacity" Value="1"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style TargetType="TextBox"><Setter Property="MinHeight" Value="0"/><Setter Property="Height" Value="42"/>
+   <Setter Property="Background" Value="#101923"/><Setter Property="Foreground" Value="#EAF0F7"/><Setter Property="CaretBrush" Value="#B6EE86"/><Setter Property="BorderBrush" Value="#304052"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="12,10"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8"><ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/></Border></ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style TargetType="ComboBoxItem"><Setter Property="Foreground" Value="#EAF0F7"/><Setter Property="Padding" Value="12"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBoxItem"><Border x:Name="Body" Padding="{TemplateBinding Padding}" Background="#172330"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Body" Property="Background" Value="#2A3D4D"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
+  <Style TargetType="ComboBox"><Setter Property="Foreground" Value="#EAF0F7"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBox"><Grid><ToggleButton Focusable="False" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" Background="#172330" Foreground="#EAF0F7" BorderThickness="0"><ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border CornerRadius="7" Background="{TemplateBinding Background}" Padding="12"><Grid><ContentPresenter Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}" Margin="0,0,22,0"/><TextBlock Text="⌄" HorizontalAlignment="Right" Foreground="#A8B7C7"/></Grid></Border></ControlTemplate></ToggleButton.Template></ToggleButton><Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False"><Border Background="#172330" BorderBrush="#3C5064" BorderThickness="1" CornerRadius="8" MinWidth="300" MaxWidth="660"><ScrollViewer MaxHeight="220"><ItemsPresenter/></ScrollViewer></Border></Popup></Grid></ControlTemplate></Setter.Value></Setter></Style>
+  <Style TargetType="DataGridRow"><Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="#EBF0F6"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Height" Value="76"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="DataGridRow"><Border x:Name="Body" CornerRadius="9" Margin="0,3" Padding="8,0" Background="{TemplateBinding Background}"><DataGridCellsPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Body" Property="Background" Value="#1D2B39"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter TargetName="Body" Property="Background" Value="#243B43"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
+  <Style TargetType="DataGridCell"><Setter Property="BorderThickness" Value="0"/><Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="#EEF3F8"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="DataGridCell"><ContentPresenter VerticalAlignment="Center"/></ControlTemplate></Setter.Value></Setter></Style>
+ </Window.Resources>
+ <Grid Background="#0C1118">
+  <Grid.RowDefinitions><RowDefinition Height="44"/><RowDefinition/></Grid.RowDefinitions>
+  <Border Grid.RowSpan="2" BorderBrush="#25313E" BorderThickness="1" IsHitTestVisible="False"/>
+  <Grid>
+   <TextBlock x:Name="TitleText" Text="sGs-app" Foreground="#8B9BAE" FontSize="12" Margin="22,13,0,0" IsHitTestVisible="False"/>
+   <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,3,6,3" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+    <Button Content="—" Background="Transparent" BorderThickness="0" Padding="14,2" Click="Minimize_Click" ToolTip="Minimizar"/><Button Content="□" Background="Transparent" BorderThickness="0" Padding="14,2" Click="Maximize_Click" ToolTip="Maximizar"/><Button Content="×" Background="Transparent" BorderThickness="0" Padding="14,2" FontSize="20" Click="Close_Click" ToolTip="Fechar"/>
+   </StackPanel>
+  </Grid>
+  <Grid Grid.Row="1">
+   <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition/></Grid.ColumnDefinitions>
+   <Border Background="#101721" BorderBrush="#24303D" BorderThickness="0,0,1,0">
+    <Grid Margin="18,24,18,20"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+     <StackPanel><Image Width="48" Height="48" HorizontalAlignment="Left" Source="pack://application:,,,/sGs-app;component/Resources/sGs-logo.png" RenderOptions.BitmapScalingMode="HighQuality"/><TextBlock x:Name="LogoWordmark" Text="sGs-app" FontSize="22" FontWeight="SemiBold" Margin="0,14,0,3"/><TextBlock Text="XBOX  →  STEAM" FontSize="10" Foreground="#8FAD9D" FontWeight="SemiBold"/></StackPanel>
+     <StackPanel Grid.Row="1" Margin="0,44,0,0"><TextBlock Text="SEU ESPAÇO" FontSize="10" Foreground="#718298" Margin="10,0,0,14"/><Button Click="LibraryNav_Click" Background="#21392F" BorderThickness="0" Padding="12,12"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8F1;" FontFamily="Segoe Fluent Icons" Margin="0,0,12,0" Foreground="#B7EE85"/><TextBlock Text="Biblioteca"/></StackPanel></Button><Button Click="SettingsButton_Click" Background="Transparent" BorderThickness="0" Margin="0,8,0,0" Padding="12,12"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" FontFamily="Segoe Fluent Icons" Margin="0,0,12,0"/><TextBlock Text="Preferências" Foreground="#9EAEBF"/></StackPanel></Button></StackPanel>
+     <StackPanel Grid.Row="2"><Border CornerRadius="8" Background="#16232A" Padding="12"><StackPanel><TextBlock Text="Jogue do seu jeito." Foreground="#CBDBC9" FontSize="12" FontWeight="SemiBold"/><TextBlock Text="Uma biblioteca.&#x0a;Todas as suas plataformas." Foreground="#81978D" FontSize="11" Margin="0,6,0,0" LineHeight="17"/></StackPanel></Border><TextBlock x:Name="VersionText" Text="VERSÃO" FontSize="10" Foreground="#627487" Margin="12,20,0,0"/></StackPanel>
     </Grid>
+   </Border>
+   <Grid Grid.Column="1" Margin="28,20,28,20">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="22"/><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <Grid><StackPanel><TextBlock Text="Sua biblioteca, conectada." FontSize="27" FontWeight="SemiBold"/><TextBlock Text="Jogos Xbox e PC, juntos na sua Steam." Foreground="{StaticResource Muted}" Margin="0,6,0,0"/></StackPanel><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><Button Content="+ Pasta do jogo" Click="AddFolder_Click" Padding="14,9" Margin="0,0,8,0"/><Button Click="LoadButton_Click" Content="↻ Atualizar" Padding="14,9"/></StackPanel></Grid>
+    <Grid x:Name="grid" Grid.Row="2">
+     <Grid.ColumnDefinitions><ColumnDefinition Width="320"/><ColumnDefinition Width="24"/><ColumnDefinition/></Grid.ColumnDefinitions>
+     <Border Background="#121C27" CornerRadius="12" BorderBrush="#253343" BorderThickness="1" Padding="16">
+      <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition/></Grid.RowDefinitions>
+       <Grid><TextBlock Text="SEUS JOGOS" FontSize="11" FontWeight="SemiBold" Foreground="#AEBECC"/><TextBlock x:Name="GameCount" Text="—" HorizontalAlignment="Right" Foreground="#75899C" FontSize="11"/></Grid>
+       <Grid Grid.Row="1" Margin="0,16,0,14"><TextBox x:Name="textBox" TextChanged="textBox_TextChanged" Padding="32,10,12,10" ToolTip="Buscar jogos instalados"/><TextBlock Text="&#xE721;" FontFamily="Segoe Fluent Icons" Foreground="#8195A8" Margin="12,13,0,0" IsHitTestVisible="False"/><TextBlock x:Name="SearchHint" Text="Buscar na biblioteca" Foreground="#708397" Margin="32,11,0,0" IsHitTestVisible="False"/></Grid>
+       <ListBox x:Name="listGames" Grid.Row="2" Background="Transparent" BorderThickness="0" SelectionMode="Single" ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionChanged="Game_SelectionChanged">
+        <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Foreground" Value="#EEF3F8"/><Setter Property="Padding" Value="10,12"/><Setter Property="Margin" Value="0,3"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="RowBody" Background="Transparent" CornerRadius="9" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="RowBody" Property="Background" Value="#1D2B39"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter TargetName="RowBody" Property="Background" Value="#243B43"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle>
+        <ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="42"/><ColumnDefinition/></Grid.ColumnDefinitions><Border Height="48" CornerRadius="6" Background="#2B3B4A" ClipToBounds="True"><Grid><TextBlock Text="{Binding Initial}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#A6BDC6" FontSize="19"/><Image Source="{Binding Icon}" Stretch="UniformToFill"/></Grid></Border><StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center"><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" Foreground="#E5EDF2" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="{Binding LibraryStatus}" Foreground="#91A599" FontSize="10" Margin="0,5,0,0"/></StackPanel></Grid></DataTemplate></ListBox.ItemTemplate>
+       </ListBox>
+      </Grid>
+     </Border>
+     <Border Grid.Column="2" Background="#131D28" BorderBrush="#293746" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+      <Grid><Grid.RowDefinitions><RowDefinition Height="218"/><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+       <Grid Background="#233541"><Image x:Name="HeroImage" Stretch="UniformToFill" Opacity="0.83"/><Rectangle><Rectangle.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#18202B33" Offset="0"/><GradientStop Color="#F3131D28" Offset="1"/></LinearGradientBrush></Rectangle.Fill></Rectangle><StackPanel Margin="24,0,24,20" VerticalAlignment="Bottom"><TextBlock Text="SUA PRÓXIMA SESSÃO COMEÇA AQUI" Foreground="#B6EE86" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,10"/><TextBlock x:Name="GameTitle" Text="Escolha o seu jogo" TextWrapping="Wrap" FontSize="28" FontWeight="SemiBold" LineHeight="32"/><TextBlock x:Name="GameSubtitle" Text="A sua biblioteca do Xbox, pronta para a Steam." Foreground="#A6B5C3" FontSize="11" Margin="0,10,0,0"/></StackPanel></Grid>
+       <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"><StackPanel Margin="24,10,24,20">
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,17"><Border Background="#20382D" CornerRadius="4" Padding="8,4"><TextBlock x:Name="GameSourceTag" Text="XBOX / WINDOWS" Foreground="#B3DE9C" FontSize="9" FontWeight="SemiBold"/></Border><TextBlock Text="→" Foreground="#7890A2" Margin="10,3"/><Border Background="#213347" CornerRadius="4" Padding="8,4"><TextBlock Text="BIBLIOTECA STEAM" Foreground="#A8CEE9" FontSize="9" FontWeight="SemiBold"/></Border></StackPanel>
+        <TextBlock x:Name="GameDescription" Text="Selecione um título instalado para conferir a edição, a descrição e os idiomas. O aplicativo prepara tudo para você." Foreground="#AEBCCB" TextWrapping="Wrap" LineHeight="20" FontSize="12"/>
+        <Grid Margin="0,20,0,16"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="DESENVOLVEDOR" Foreground="#738BA0" FontSize="9" FontWeight="SemiBold"/><TextBlock x:Name="DeveloperText" Text="—" Foreground="#D0DBE4" FontSize="11" TextWrapping="Wrap" Margin="0,6,14,0"/></StackPanel><StackPanel Grid.Column="1"><TextBlock Text="LANÇAMENTO" Foreground="#738BA0" FontSize="9" FontWeight="SemiBold"/><TextBlock x:Name="ReleaseText" Text="—" FontSize="11" Foreground="#D0DBE4" Margin="0,6,0,0"/></StackPanel></Grid>
+        <TextBlock Text="IDIOMAS E ÁUDIO" Foreground="#738BA0" FontSize="9" FontWeight="SemiBold"/><TextBlock x:Name="LanguagesText" Text="A ficha será carregada em português." TextWrapping="Wrap" Foreground="#AEBCCB" FontSize="11" Margin="0,6,0,16" LineHeight="17"/>
+        <Expander Header="Conferir ou trocar a edição" Foreground="#AFC2D2" FontSize="11" Background="Transparent"><StackPanel Margin="0,12,0,4"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBox x:Name="EditionQuery" Padding="10,8" ToolTip="Nome completo ou AppID Steam" KeyDown="EditionQuery_KeyDown"/><Button Grid.Column="1" Content="Buscar" Click="EditionSearch_Click" Padding="12,8" Margin="8,0,0,0"/></Grid><ComboBox x:Name="EditionResults" DisplayMemberPath="Name" SelectionChanged="Edition_SelectionChanged" Margin="0,10,0,0"/></StackPanel></Expander>
+       </StackPanel></ScrollViewer>
+       <Border Grid.Row="2" BorderBrush="#2A3744" BorderThickness="0,1,0,0" Padding="24,18" Background="#17232E"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock x:Name="ImportHint" Text="Atalho, artes e ficha preparados em uma única etapa." Foreground="#91A5B6" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/><Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Button x:Name="ImportButton" Click="UnifiedImport_Click" Content="Vincular à Steam  →" IsEnabled="False" Foreground="#17231A" Background="#B7EE85" BorderThickness="0" Padding="20,14" FontSize="14"/><Button x:Name="UpdateLinkButton" Grid.Column="1" Content="Atualizar vínculo" Click="UnifiedImport_Click" Visibility="Collapsed" Padding="14,12" Margin="10,0,0,0"/></Grid></Grid></Border>
+      </Grid>
+     </Border>
+    </Grid>
+    <StackPanel Grid.Row="3" Margin="0,16,0,0"><ProgressBar x:Name="progressBar" Visibility="Collapsed" Height="3" IsIndeterminate="True" Foreground="#B7EE85" Background="#223140" Margin="0,0,0,10"/><Grid><Label x:Name="label" Content="Preparando sua biblioteca…" Foreground="#8D9FB0" FontSize="11" Padding="0"/><TextBlock x:Name="ConnectionStatus" Text="●  Steam encontrada" Foreground="#92AB96" FontSize="11" HorizontalAlignment="Right"/></Grid></StackPanel>
+   </Grid>
+  </Grid>
+  <Border x:Name="PreferencesPanel" Grid.Row="1" Margin="218,20,28,20" Background="#131D28" BorderBrush="#344555" BorderThickness="1" CornerRadius="12" Padding="32" Visibility="Collapsed">
+   <Grid><StackPanel MaxWidth="630" HorizontalAlignment="Left"><TextBlock Text="Tudo no mesmo lugar." FontSize="28" FontWeight="SemiBold"/><TextBlock Text="O essencial para a sua biblioteca conectada." Foreground="#8FA3B6" Margin="0,10,0,32"/><TextBlock Text="STEAM" Foreground="#829BAE" FontSize="10"/><TextBlock x:Name="SteamPathText" Foreground="#E1EAF2" TextWrapping="Wrap" Margin="0,9,0,24"/><TextBlock Text="COMO FUNCIONA" Foreground="#829BAE" FontSize="10"/><TextBlock Text="Escolha um jogo e clique em Adicionar à Steam. O aplicativo encerra a Steam, prepara o atalho, a apresentação e a ficha e reabre a biblioteca. Na primeira utilização, o Windows pode solicitar uma confirmação de administrador." Foreground="#B0C0CE" TextWrapping="Wrap" LineHeight="23" Margin="0,9,0,24"/><CheckBox x:Name="LinkedStateToggle" Content="Mostrar Vinculado nos jogos já sincronizados" Foreground="#DCE8E1" Margin="0,0,0,24" Checked="LinkedState_Changed" Unchecked="LinkedState_Changed"/><TextBlock x:Name="AboutTitle" Text="SOBRE O sGs-app" Foreground="#829BAE" FontSize="10"/><TextBlock Text="Baseado no UWPHook de Brian Lima. A apresentação da biblioteca usa Millennium e NativeGameLink, incluídos neste aplicativo com os créditos e as licenças MIT originais. Jogos Xbox usam sua instalação registrada. Jogos de PC usam o executável escolhido." Foreground="#B0C0CE" TextWrapping="Wrap" LineHeight="23" Margin="0,9,0,30"/><Button Content="Voltar à biblioteca" Click="LibraryNav_Click" HorizontalAlignment="Left"/></StackPanel></Grid>
+  </Border>
+ </Grid>
 </Window>

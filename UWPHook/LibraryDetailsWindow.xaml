@@ -1,0 +1,50 @@
+<Window x:Class="UWPHook.LibraryDetailsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="UWPHook — Ficha na Steam" Width="850" Height="720" MinWidth="700" MinHeight="620"
+        WindowStartupLocation="CenterOwner" Loaded="Window_Loaded">
+    <Grid Margin="20" x:Name="DetailsGrid">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="150"/><RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <StackPanel>
+            <TextBlock Text="Ficha do jogo na Steam" FontSize="22" FontWeight="SemiBold"/>
+            <TextBlock x:Name="AppTitle" Margin="0,6,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+        <DockPanel Grid.Row="1" Margin="0,14,0,12">
+            <Button x:Name="SearchButton" DockPanel.Dock="Right" Content="Pesquisar" Click="Search_Click" Padding="16,5" Margin="12,0,0,0"/>
+            <TextBox x:Name="SearchText" KeyDown="SearchText_KeyDown" VerticalContentAlignment="Center" AutomationProperties.Name="Nome, AppID ou URL da Steam" ToolTip="Pesquise pelo nome completo, AppID ou URL da loja Steam."/>
+        </DockPanel>
+        <DataGrid x:Name="Results" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True"
+                  CanUserAddRows="False" SelectionMode="Single" SelectionChanged="Results_SelectionChanged">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Jogo" Binding="{Binding Name}" Width="*" MinWidth="400"/>
+                <DataGridTextColumn Header="Steam AppID" Binding="{Binding Id}" Width="130"/>
+            </DataGrid.Columns>
+        </DataGrid>
+        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" Margin="0,12,0,8">
+            <StackPanel>
+                <TextBlock x:Name="GameTitle" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                <TextBlock x:Name="Description" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                <TextBlock x:Name="Credits" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                <TextBlock x:Name="Languages" Margin="0,10,0,0" TextWrapping="Wrap"/>
+            </StackPanel>
+        </ScrollViewer>
+        <Border Grid.Row="4" Background="#FFF1F4F8" Padding="12" Margin="0,8,0,12">
+            <StackPanel>
+                <TextBlock x:Name="ComponentStatus" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                <TextBlock Margin="0,5,0,8" TextWrapping="Wrap" Text="A ativação instala o componente de interface da Steam incluído neste UWPHook. Feche a Steam antes de ativar ou desativar; abra-a novamente para ver a ficha. O jogo continua iniciando pelo Xbox."/>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Ativar / atualizar ficha" Click="Activate_Click" Padding="12,5" Margin="0,0,12,0"/>
+                    <Button Content="Desativar ficha" Click="Disable_Click" Padding="12,5"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        <DockPanel Grid.Row="5">
+            <Button x:Name="SaveButton" DockPanel.Dock="Right" Content="Salvar ficha deste jogo" IsEnabled="False" Click="Save_Click" Padding="12,6" Margin="12,0,0,0"/>
+            <TextBlock x:Name="Status" TextWrapping="Wrap" VerticalAlignment="Center"/>
+        </DockPanel>
+    </Grid>
+</Window>

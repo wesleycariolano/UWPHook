@@ -1,3 +1,82 @@
+# sGs-app 3.1
+
+A Windows library for connecting Xbox and PC games to Steam in one action.
+Based on [BrianLima/UWPHook](https://github.com/BrianLima/UWPHook), with the MIT
+license and original project credits preserved.
+
+## Use the app
+
+1. Keep `sGs-app.exe` in a permanent folder and open it. The title bar, sidebar
+   and About section read the version compiled from the project file.
+2. Select a game and review its Steam edition, description and languages.
+3. Click **Vincular à Steam**. The app downloads official artwork, closes Steam
+   normally, prepares its included presentation components, commits the shortcut
+   and metadata together, and reopens Steam.
+
+The automatic list contains registered games: GDK titles with game configuration
+or game-launch metadata, declared legacy games and recognized classic Microsoft
+games. It excludes Windows utilities, Xbox support services and framework packages.
+
+If a title is missing, choose **+ Pasta do jogo**. A registered Xbox game keeps its
+normal Windows/Xbox activation identity. For a regular PC game, choose the main
+executable when several are found. Folder choices persist and are restored on the
+next launch. Installer and crash-report executables are excluded. A registered
+Xbox game is never converted into a direct launch of its protected executable.
+
+A synchronized game displays **Vinculado** with an **Atualizar vínculo** action.
+This label can be turned off in **Preferências**. The status is checked against
+both the Steam shortcut and the committed metadata mapping, rather than only the
+presence of a shortcut.
+
+## Branding, version and compatibility
+
+The application and executable are named **sGs-app**, with a new vector logo and
+a Windows icon in seven sizes. `<Version>` in `UWPHook/UWPHook.csproj` is the single
+version source; UI labels derive from the compiled assembly. `scripts/Build-BrandAssets.ps1`
+reproduces the PNG and icon assets from the vector mark geometry.
+
+Existing UWPHook launch identities and local selections are retained. State stays
+in `%APPDATA%\Briano\UWPHook` for compatibility. Reimporting a game preserves its
+shortcut ID, play history, tags, visibility and custom artwork. A valid empty
+Steam shortcut file is accepted; other truncated files are rejected. Imports have
+restore manifests and roll back partial writes.
+
+## Included components
+
+The same executable bundles Millennium 3.6.2 and NativeGameLink 5.0.0 with their MIT
+licenses. The app handles setup; no separate end-user download is required.
+[Component provenance](third_party/LibraryDetails/README.md) documents the pinned
+archives and distribution changes. The companion accepts the legacy UWPHook and
+new sGs-app launcher names without modifying game licensing files.
+
+Steam mappings use `shortcut:<unsigned ID>` so the frontend recognizes imports as
+already linked. Xbox titles continue using Xbox activation; folder-based PC games
+use their chosen executable. Xbox license, achievement and hour conversion into
+Steam account progress is not implemented.
+
+## Build and check
+
+Requires Windows, PowerShell 7, .NET 8 SDK, Node.js 24 and pnpm.
+
+```powershell
+./scripts/Build-BrandAssets.ps1
+./scripts/Prepare-LibraryDetails.ps1
+pnpm install --frozen-lockfile --ignore-scripts
+dotnet run --project UWPHook.Tests/UWPHook.Tests.csproj -c Release -- --contract-output .bundles/import-contract.json
+pnpm test:companion
+dotnet publish UWPHook/UWPHook.csproj -c Release -r win-x64 --self-contained false -o publish
+```
+
+The published executable requires .NET 8 Desktop Runtime x64. Regression checks
+cover game filtering, folder identities and persistence, executable selection,
+Xbox folder resolution, brand compatibility, first imports into empty profiles,
+duplicate prevention, rollback and committed frontend mapping recognition.
+Tests use separate fixtures and do not alter a live Steam library. Optional
+`--check-discovery` and `--check-folder <path>` harness modes inspect real Windows
+registrations without changing them.
+
+## Original project documentation
+
 # UWPHook
 
 [![](http://imgur.com/gWwR02D.png)](https://briano.dev/UWPHook/)

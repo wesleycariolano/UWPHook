@@ -13,13 +13,17 @@ namespace UWPHook
         public static string RunScript(string scriptText)
         {
             // create Powershell runspace
-            Runspace runspace = RunspaceFactory.CreateRunspace();
+            // Scope module loading to this embedded host; do not modify the
+            // user's or machine's execution-policy settings.
+            var session = InitialSessionState.CreateDefault();
+            session.ExecutionPolicy = Microsoft.PowerShell.ExecutionPolicy.RemoteSigned;
+            using Runspace runspace = RunspaceFactory.CreateRunspace(session);
 
             // open it
             runspace.Open();
 
             // create a pipeline and feed it the script text
-            Pipeline pipeline = runspace.CreatePipeline();
+            using Pipeline pipeline = runspace.CreatePipeline();
             pipeline.Commands.AddScript(scriptText);
 
             // add an extra command to transform the script

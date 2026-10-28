@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.IO;
@@ -9,6 +9,19 @@ namespace UWPHook
 {
     public class AppEntry : INotifyPropertyChanged
     {
+        public string Initial => string.IsNullOrEmpty(Name) ? "?" : Name.Substring(0, 1).ToUpperInvariant();
+        private bool inSteam;
+        public bool InSteam { get => inSteam; set { inSteam = value; OnPropertyChanged(); OnPropertyChanged(nameof(LibraryStatus)); } }
+        public string LibraryStatus => InSteam ? (UiPreferences.Current.ShowLinkedState ? "✓ Vinculado" : "Na Steam") : "Pronto para vincular";
+        public string PackageName { get; set; } = "";
+        public string InstallDirectory { get; set; } = "";
+        public bool HasGameConfig { get; set; }
+        public bool HasGameExplorer { get; set; }
+        public bool UsesGameLaunchHelper { get; set; }
+        public bool IsGame { get; set; }
+        public string LaunchKind { get; set; } = "xbox";
+        public string ExecutablePath { get; set; } = "";
+        public void RefreshStatus() => OnPropertyChanged(nameof(LibraryStatus));
         private bool _isSelected;
         /// <summary>
         /// Gets or sets if the application is selected
@@ -32,7 +45,7 @@ namespace UWPHook
         public string Name
         {
             get { return _name; }
-            set { _name = value; }
+            set { _name = value; OnPropertyChanged(); }
         }
 
         private string _executable;
@@ -68,7 +81,7 @@ namespace UWPHook
 
 
         /// <summary>
-        /// Sets the path where icons for the app is 
+        /// Sets the path where icons for the app is
         /// </summary>
         private string _icon_path;
 

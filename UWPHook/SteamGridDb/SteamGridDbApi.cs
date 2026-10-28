@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
@@ -8,7 +8,7 @@ using Serilog;
 
 namespace UWPHook.SteamGridDb
 {
-    class SteamGridDbApi
+    class SteamGridDbApi : IDisposable
     {
         private const string BASE_URL = "https://www.steamgriddb.com/api/v2/";
 
@@ -19,43 +19,41 @@ namespace UWPHook.SteamGridDb
         /// Constructor
         /// </summary>
         /// <param name="apiKey"> An SteamGridDB api key retrieved from https://www.steamgriddb.com/profile/preferences </param>
-        public SteamGridDbApi(string apiKey)
+        public SteamGridDbApi(string apiKey) : this(apiKey, new HttpClientHandler()) { }
+
+        internal SteamGridDbApi(string apiKey, HttpMessageHandler handler)
         {
             settings = Settings.Default;
-            httpClient = new HttpClient();
+            httpClient = new HttpClient(handler);
             httpClient.BaseAddress = new Uri(BASE_URL);
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         }
 
         /// <summary>
-        /// Search SteamGridDB for a game 
+        /// Search SteamGridDB for a game
         /// </summary>
         /// <param name="gameName" type="String">Name of the game</param>
         /// <returns>Array of games corresponding to the provided name</returns>
         public async Task<GameResponse[]> SearchGame(string gameName)
         {
-            string path = $"search/autocomplete/{gameName}";
+            string path = $"search/autocomplete/{Uri.EscapeDataString(gameName.Trim())}";
 
             GameResponse[] games = null;
-            HttpResponseMessage response = await httpClient.GetAsync(path);
-            
+            using HttpResponseMessage response = await httpClient.GetAsync(path);
+
             if (response.IsSuccessStatusCode)
             {
                 var parsedResponse = await response.Content.ReadAsAsync<ResponseWrapper<GameResponse>>();
-                games = parsedResponse.Data;
+                games = parsedResponse?.Data ?? Array.Empty<GameResponse>();
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
-                Log.Verbose("ERROR RESPONSE: " + response.ToString());
-
-                settings.SteamGridDbApiKey = String.Empty;
-                settings.Save();
-
                 Log.Error("Warning: SteamGrid API Key Invalid. Please generate a new key and add it to settings.");
-                throw new TaskCanceledException("Warning: SteamGrid API Key Invalid. Please generate a new key and add it to settings.");
+                throw new HttpRequestException("SteamGridDB rejected the API key. Update it in Settings.");
             }
 
-            return games;
+            response.EnsureSuccessStatusCode();
+            return games ?? Array.Empty<GameResponse>();
         }
 
         /// <summary>
@@ -75,7 +73,7 @@ namespace UWPHook.SteamGridDb
             if (!String.IsNullOrEmpty(dimensions))
                 result += $"dimensions={dimensions}&";
 
-            if (type != "any") 
+            if (type != "any")
                 result += $"types={type}&";
 
             if (style != "any")
@@ -97,7 +95,8 @@ namespace UWPHook.SteamGridDb
         /// <returns>An array of ImageResponse with their urls</returns>
         public async Task<ImageResponse[]> getResponse(string url)
         {
-            HttpResponseMessage response = await httpClient.GetAsync(url);
+            using HttpResponseMessage response = await httpClient.GetAsync(url);
+            response.EnsureSuccessStatusCode();
             ImageResponse[] images = null;
 
             if (response.IsSuccessStatusCode)
@@ -135,6 +134,8 @@ namespace UWPHook.SteamGridDb
 
             return await getResponse(path);
         }
+
+        public void Dispose() => httpClient.Dispose();
 
         private class ResponseWrapper<T>
         {
